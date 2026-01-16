@@ -1,4 +1,4 @@
-import { getSubmissionById, updateSubmissionCompilation, type Submission } from "@/lib/db/queries";
+import { getSubmissionById, updateSubmissionCompilation } from "@/lib/db/queries";
 
 const COMPILER_URL = process.env.COMPILER_URL || "http://localhost:3001";
 

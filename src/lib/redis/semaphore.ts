@@ -6,25 +6,6 @@ const GPT_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 const SEMINAR_SEMAPHORE_MAX = 8;
 const SEMINAR_TIMEOUT_MS = 35 * 60 * 1000; // 35 minutes
 
-// Lua script for atomic acquire
-// Returns 1 if acquired, 0 if not
-const ACQUIRE_SCRIPT = `
-local key = KEYS[1]
-local holder_id = ARGV[1]
-local max_count = tonumber(ARGV[2])
-local timeout_ms = tonumber(ARGV[3])
-
-local current = redis.call('ZCARD', key)
-if current < max_count then
-  local score = redis.call('TIME')
-  local now_ms = tonumber(score[1]) * 1000 + math.floor(tonumber(score[2]) / 1000)
-  local expires_at = now_ms + timeout_ms
-  redis.call('ZADD', key, expires_at, holder_id)
-  return 1
-end
-return 0
-`;
-
 // Lua script for atomic release
 // Returns 1 if released, 0 if not found
 const RELEASE_SCRIPT = `

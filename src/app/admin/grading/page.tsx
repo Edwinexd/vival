@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Card,
   CardContent,
@@ -103,12 +104,16 @@ function formatDate(dateStr: string): string {
   });
 }
 
+async function fetchGradingSubmissions(): Promise<SubmissionForGrading[]> {
+  const res = await fetch("/api/admin/grading");
+  if (!res.ok) throw new Error("Failed to fetch submissions");
+  const data = await res.json();
+  return data.submissions;
+}
+
 export default function GradingPage() {
-  const [submissions, setSubmissions] = useState<SubmissionForGrading[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedSubmission, setSelectedSubmission] = useState<SubmissionForGrading | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [formData, setFormData] = useState<GradeFormData>({
     review_score: "",
@@ -117,23 +122,15 @@ export default function GradingPage() {
     admin_notes: "",
     student_feedback: "",
   });
+  const queryClient = useQueryClient();
 
   const t = useTranslations("admin.grading");
   const tc = useTranslations("common");
 
-  const fetchSubmissions = useCallback(async () => {
-    setLoading(true);
-    const res = await fetch("/api/admin/grading");
-    if (res.ok) {
-      const data = await res.json();
-      setSubmissions(data.submissions);
-    }
-    setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    fetchSubmissions();
-  }, [fetchSubmissions]);
+  const { data: submissions = [], isLoading: loading } = useQuery({
+    queryKey: ["admin-grading-submissions"],
+    queryFn: fetchGradingSubmissions,
+  });
 
   const openGradingDialog = (submission: SubmissionForGrading) => {
     setSelectedSubmission(submission);
@@ -147,29 +144,32 @@ export default function GradingPage() {
     setDialogOpen(true);
   };
 
-  const handleSaveGrade = async (updateStatus: boolean = false) => {
-    if (!selectedSubmission) return;
-    setSaving(true);
-
-    const res = await fetch("/api/admin/grading", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        submission_id: selectedSubmission.id,
-        review_score: formData.review_score ? parseInt(formData.review_score) : null,
-        seminar_score: formData.seminar_score ? parseInt(formData.seminar_score) : null,
-        final_grade: formData.final_grade || null,
-        admin_notes: formData.admin_notes || null,
-        student_feedback: formData.student_feedback || null,
-        update_status: updateStatus,
-      }),
-    });
-
-    if (res.ok) {
+  const saveGradeMutation = useMutation({
+    mutationFn: async (params: { updateStatus: boolean }) => {
+      if (!selectedSubmission) throw new Error("No submission selected");
+      const res = await fetch("/api/admin/grading", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          submission_id: selectedSubmission.id,
+          review_score: formData.review_score ? parseInt(formData.review_score) : null,
+          seminar_score: formData.seminar_score ? parseInt(formData.seminar_score) : null,
+          final_grade: formData.final_grade || null,
+          admin_notes: formData.admin_notes || null,
+          student_feedback: formData.student_feedback || null,
+          update_status: params.updateStatus,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to save grade");
+    },
+    onSuccess: () => {
       setDialogOpen(false);
-      fetchSubmissions();
-    }
-    setSaving(false);
+      queryClient.invalidateQueries({ queryKey: ["admin-grading-submissions"] });
+    },
+  });
+
+  const handleSaveGrade = (updateStatus: boolean = false) => {
+    saveGradeMutation.mutate({ updateStatus });
   };
 
   const handleExportCSV = () => {
@@ -425,16 +425,16 @@ export default function GradingPage() {
             <Button
               variant="secondary"
               onClick={() => handleSaveGrade(false)}
-              disabled={saving}
+              disabled={saveGradeMutation.isPending}
             >
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {saveGradeMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {tc("actions.saveDraft")}
             </Button>
             <Button
               onClick={() => handleSaveGrade(true)}
-              disabled={saving || !formData.final_grade}
+              disabled={saveGradeMutation.isPending || !formData.final_grade}
             >
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {saveGradeMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {tc("actions.saveAndFinalize")}
             </Button>
           </DialogFooter>

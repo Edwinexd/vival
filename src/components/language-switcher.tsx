@@ -21,6 +21,7 @@ export function LanguageSwitcher() {
   const t = useTranslations("common");
 
   const setLocale = (locale: string) => {
+    // eslint-disable-next-line react-hooks/immutability -- intentional browser cookie API usage
     document.cookie = `locale=${locale};path=/;max-age=31536000`;
     router.refresh();
   };

@@ -59,13 +59,6 @@ function canStartSeminar(seminar: Seminar): boolean {
   return now >= start && now <= end;
 }
 
-function isUpcomingSeminar(seminar: Seminar): boolean {
-  if (seminar.status !== "booked") return false;
-  const now = new Date();
-  const start = new Date(seminar.window_start);
-  return now < start;
-}
-
 export default function StudentDashboard() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [seminars, setSeminars] = useState<Seminar[]>([]);

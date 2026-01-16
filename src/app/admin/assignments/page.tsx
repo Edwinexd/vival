@@ -95,8 +95,8 @@ export default function AssignmentsPage() {
         const data = await res.json();
         setAssignments(data.assignments || []);
         setCourses(data.courses || []);
-        if (data.courses?.length > 0 && !formData.courseId) {
-          setFormData((prev) => ({ ...prev, courseId: data.courses[0].id }));
+        if (data.courses?.length > 0) {
+          setFormData((prev) => prev.courseId ? prev : { ...prev, courseId: data.courses[0].id });
         }
       }
     } catch {

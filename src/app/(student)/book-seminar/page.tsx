@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Card,
   CardContent,
@@ -64,95 +65,82 @@ function formatTimeWindow(start: string, end: string): string {
   return `${formatTime(start)} - ${formatTime(end)}`;
 }
 
+async function fetchAssignments(): Promise<Assignment[]> {
+  const res = await fetch("/api/student/assignments");
+  if (!res.ok) throw new Error("Failed to fetch assignments");
+  const data = await res.json();
+  return data.assignments;
+}
+
+async function fetchSlots(assignmentId: string): Promise<Slot[]> {
+  const res = await fetch(`/api/student/slots?assignmentId=${assignmentId}`);
+  if (!res.ok) throw new Error("Failed to fetch slots");
+  const data = await res.json();
+  return data.slots;
+}
+
+async function bookSeminar(params: { submissionId: string; slotId: string; language: string }): Promise<void> {
+  const res = await fetch("/api/student/book", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || "Booking failed");
+  }
+}
+
 export default function BookSeminarPage() {
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [slots, setSlots] = useState<Slot[]>([]);
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<string>("");
   const [selectedLanguage, setSelectedLanguage] = useState<string>("en");
-  const [loadingAssignments, setLoadingAssignments] = useState(true);
-  const [loadingSlots, setLoadingSlots] = useState(false);
-  const [booking, setBooking] = useState(false);
+  const queryClient = useQueryClient();
 
   const t = useTranslations("student.booking");
   const tc = useTranslations("common");
 
-  useEffect(() => {
-    fetchAssignments();
-  }, []);
+  const { data: assignments = [], isLoading: loadingAssignments } = useQuery({
+    queryKey: ["student-assignments"],
+    queryFn: fetchAssignments,
+  });
 
-  async function fetchAssignments() {
-    try {
-      const res = await fetch("/api/student/assignments");
-      if (!res.ok) throw new Error("Failed to fetch assignments");
-      const data = await res.json();
-      setAssignments(data.assignments);
-    } catch {
-      toast.error(tc("errors.loadFailed"));
-    } finally {
-      setLoadingAssignments(false);
-    }
-  }
+  const { data: slots = [], isLoading: loadingSlots } = useQuery({
+    queryKey: ["student-slots", selectedAssignment?.id],
+    queryFn: () => fetchSlots(selectedAssignment!.id),
+    enabled: !!selectedAssignment,
+  });
 
-  async function fetchSlots(assignmentId: string) {
-    setLoadingSlots(true);
-    setSlots([]);
-    setSelectedSlot("");
-    try {
-      const res = await fetch(`/api/student/slots?assignmentId=${assignmentId}`);
-      if (!res.ok) throw new Error("Failed to fetch slots");
-      const data = await res.json();
-      setSlots(data.slots);
-    } catch {
-      toast.error(tc("errors.loadFailed"));
-    } finally {
-      setLoadingSlots(false);
-    }
-  }
+  const bookingMutation = useMutation({
+    mutationFn: bookSeminar,
+    onSuccess: () => {
+      toast.success(t("bookingSuccess"));
+      setSelectedAssignment(null);
+      setSelectedSlot("");
+      queryClient.invalidateQueries({ queryKey: ["student-assignments"] });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || t("bookingFailed"));
+    },
+  });
 
   function handleAssignmentSelect(assignmentId: string) {
     const assignment = assignments.find((a) => a.id === assignmentId);
     setSelectedAssignment(assignment || null);
-    if (assignment) {
-      fetchSlots(assignmentId);
-    }
+    setSelectedSlot("");
   }
 
-  async function handleBooking() {
+  function handleBooking() {
     if (!selectedAssignment?.submission_id || !selectedSlot) {
       toast.error(t("selectBoth"));
       return;
     }
 
-    setBooking(true);
-    try {
-      const res = await fetch("/api/student/book", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          submissionId: selectedAssignment.submission_id,
-          slotId: selectedSlot,
-          language: selectedLanguage,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || t("bookingFailed"));
-      }
-
-      toast.success(t("bookingSuccess"));
-
-      setSelectedAssignment(null);
-      setSelectedSlot("");
-      setSlots([]);
-      await fetchAssignments();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("bookingFailed"));
-    } finally {
-      setBooking(false);
-    }
+    bookingMutation.mutate({
+      submissionId: selectedAssignment.submission_id,
+      slotId: selectedSlot,
+      language: selectedLanguage,
+    });
   }
 
   function getStatusBadge(status: string | null) {
@@ -313,10 +301,10 @@ export default function BookSeminarPage() {
 
                   <Button
                     className="w-full"
-                    disabled={!selectedSlot || booking}
+                    disabled={!selectedSlot || bookingMutation.isPending}
                     onClick={handleBooking}
                   >
-                    {booking ? (
+                    {bookingMutation.isPending ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         {tc("actions.booking")}

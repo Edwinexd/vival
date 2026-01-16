@@ -49,6 +49,32 @@ export function useConversation(options: UseConversationOptions = {}): UseConver
     onStateChange?.(newState);
   }, [onStateChange]);
 
+  const cleanup = useCallback(() => {
+    // Stop media stream
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current = null;
+    }
+
+    // Disconnect processor
+    if (processorRef.current) {
+      processorRef.current.disconnect();
+      processorRef.current = null;
+    }
+
+    // Close audio context
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+
+    // Close WebSocket
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+  }, []);
+
   const connect = useCallback(async (options: ConnectOptions) => {
     const { signedUrl, configOverride } = options;
 
@@ -172,33 +198,7 @@ export function useConversation(options: UseConversationOptions = {}): UseConver
       onError?.(error);
       updateState('error');
     }
-  }, [state, isMuted, onMessage, onError, onConversationStarted, updateState]);
-
-  const cleanup = useCallback(() => {
-    // Stop media stream
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach(track => track.stop());
-      mediaStreamRef.current = null;
-    }
-
-    // Disconnect processor
-    if (processorRef.current) {
-      processorRef.current.disconnect();
-      processorRef.current = null;
-    }
-
-    // Close audio context
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
-    }
-
-    // Close WebSocket
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
-    }
-  }, []);
+  }, [state, isMuted, onMessage, onError, onConversationStarted, updateState, cleanup]);
 
   const disconnect = useCallback(() => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {

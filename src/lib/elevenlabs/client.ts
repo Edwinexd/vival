@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from 'crypto';
 import type {
   SeminarContext,
   ConversationSession,
@@ -229,15 +230,13 @@ export function validateWebhookSignature(
   }
 
   // Compute expected signature
-  const crypto = require('crypto');
-  const expectedSignature = 'sha256=' + crypto
-    .createHmac('sha256', secret)
+  const expectedSignature = 'sha256=' + createHmac('sha256', secret)
     .update(payload, 'utf8')
     .digest('hex');
 
   // Constant-time comparison to prevent timing attacks
   try {
-    return crypto.timingSafeEqual(
+    return timingSafeEqual(
       Buffer.from(signature),
       Buffer.from(expectedSignature)
     );

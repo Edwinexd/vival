@@ -1,4 +1,4 @@
-import { reviewCode, ReviewResult, isJavaFile } from "@/lib/openai";
+import { reviewCode, isJavaFile } from "@/lib/openai";
 import { generateId } from "@/lib/id";
 import { acquireGptSemaphore, releaseGptSemaphore } from "@/lib/redis/semaphore";
 import {

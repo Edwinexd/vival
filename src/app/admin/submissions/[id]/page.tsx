@@ -300,7 +300,7 @@ export default function SubmissionDetailPage() {
                 </div>
               ) : (
                 <p className="text-muted-foreground py-8 text-center">
-                  No review available. Click "Run Review" to analyze this submission.
+                  No review available. Click &quot;Run Review&quot; to analyze this submission.
                 </p>
               )}
             </CardContent>

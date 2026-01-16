@@ -22,8 +22,8 @@ jobs:
 
       - name: Setup WireGuard
         run: |
-          echo "${{ secrets.WIREGUARD_CONFIG }}" | sudo tee /etc/wireguard/wg0.conf
-          echo "PrivateKey = ${{ secrets.WIREGUARD_PRIVATE_KEY }}" | sudo tee -a /etc/wireguard/wg0.conf
+          # Insert PrivateKey after Address line in [Interface] section
+          echo "${{ secrets.WIREGUARD_CONFIG }}" | sed "/^\[Interface\]/a PrivateKey = ${{ secrets.WIREGUARD_PRIVATE_KEY }}" | sudo tee /etc/wireguard/wg0.conf
           sudo chmod 600 /etc/wireguard/wg0.conf
           sudo wg-quick up wg0
 

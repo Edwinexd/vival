@@ -125,10 +125,16 @@ export async function getUserById(id: string): Promise<User | null> {
   return result[0] ?? null;
 }
 
+// Get user by username with flexible matching
+// Matches usernames with or without domain suffix (e.g., "bbohm" matches "bbohm@SU.SE")
 export async function getUserByUsername(suUsername: string): Promise<User | null> {
   const sql = getDb();
+  // Extract base username (before @) and compare case-insensitively
+  // This allows "bbohm@SU.SE" to match "bbohm" in DB and vice versa
   const result = await sql<User[]>`
-    SELECT * FROM users WHERE su_username = ${suUsername}
+    SELECT * FROM users
+    WHERE LOWER(SPLIT_PART(su_username, '@', 1)) = LOWER(SPLIT_PART(${suUsername}, '@', 1))
+    LIMIT 1
   `;
   return result[0] ?? null;
 }

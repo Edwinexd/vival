@@ -813,8 +813,7 @@ OPENAI_MODEL=gpt-5
 ELEVENLABS_API_KEY=...
 ELEVENLABS_AGENT_ID=...
 
-# Auth (header name from upstream SAML proxy)
-AUTH_HEADER_NAME=X-Remote-User
+# Auth (admin usernames - matched without domain suffix)
 ADMIN_USERNAMES=edsu8469,anel1234,prof5678
 
 # App

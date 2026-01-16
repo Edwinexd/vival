@@ -85,15 +85,15 @@ spec:
               cpu: "500m"
           readinessProbe:
             httpGet:
-              path: /api/auth/me
+              path: /login
               port: 3000
-            initialDelaySeconds: 10
+            initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             httpGet:
-              path: /api/auth/me
+              path: /login
               port: 3000
-            initialDelaySeconds: 30
+            initialDelaySeconds: 15
             periodSeconds: 30
 ---
 apiVersion: v1

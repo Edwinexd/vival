@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSession, getCookieName, isAdmin } from '@/lib/auth';
 
-// Extract username from eppn (e.g., "edsu8469@su.se" -> "edsu8469")
-function extractUsername(eppn: string): string | null {
+// Validate eppn format (e.g., "bbohm@SU.SE" or "edsu8469@su.se")
+// Returns the full eppn if valid, null otherwise
+function validateEppn(eppn: string): string | null {
   if (!eppn) return null;
-  const match = eppn.match(/^([a-zA-Z0-9]+)@/);
-  return match ? match[1] : null;
+  // Must be username@domain format
+  const match = eppn.match(/^[a-zA-Z0-9]+@[a-zA-Z0-9.]+$/);
+  return match ? eppn : null;
 }
 
 export async function GET(request: NextRequest) {
-  // Read SAML attributes from Apache headers
+  // Read SAML attributes from Apache headers (hardcoded header name)
   const eppn = request.headers.get('x-shib-eppn') || request.headers.get('x-remote-user');
 
   if (!eppn) {
@@ -18,16 +20,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${baseUrl}/Shibboleth.sso/Login?target=${encodeURIComponent(baseUrl + '/api/auth/saml')}`);
   }
 
-  const username = extractUsername(eppn);
+  const username = validateEppn(eppn);
 
   if (!username) {
     return NextResponse.json(
-      { error: 'Invalid SAML response: could not extract username from eppn' },
+      { error: 'Invalid SAML response: eppn must be in username@domain format' },
       { status: 400 }
     );
   }
 
-  // Create JWT session
+  // Create JWT session with full eppn (e.g., "bbohm@SU.SE")
   const token = await createSession(username);
   const userIsAdmin = isAdmin(username);
 

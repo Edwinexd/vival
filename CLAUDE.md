@@ -20,7 +20,7 @@ Automated code review and oral examination system for Stockholm University progr
 1. **Two portals:** Admin (upload, review, grade) + Student (book, take seminar, view results)
 2. **Two-stage AI pipeline:** GPT reviews code and creates discussion plan, ElevenLabs only receives condensed discussion points (code too large for voice agent context)
 3. **All storage in PostgreSQL:** Code as TEXT, audio as BYTEA - no separate object storage
-4. **Auth via JWT:** Development uses trust login (`/login`), production integrates with upstream SAML. Session stored in httpOnly cookie.
+4. **Auth via JWT:** Development uses trust login (`/login`), production reads `X-Remote-User` header from upstream SAML (Apache mod_shib). Session stores full eppn (e.g., `bbohm@SU.SE`). Username matching is flexible - DB records without domain (from uploads) match login with domain.
 5. **Source files:** Supports common programming languages (.java, .py, .js, .ts, .c, .cpp, .go, .rs, etc.)
 6. **Language choice:** Students choose Swedish or English when booking
 7. **Flexible scheduling:** Students book a time window (e.g., 10-11), start anytime within it
@@ -40,6 +40,11 @@ Automated code review and oral examination system for Stockholm University progr
 ```bash
 # Development
 npm run dev
+
+# Linting & Type Checking
+npm run lint           # Run ESLint
+npm run lint:fix       # Run ESLint with auto-fix
+npm run typecheck      # Run TypeScript type check
 
 # Database
 npm run db:migrate
@@ -67,7 +72,7 @@ See `.env.example` for required variables:
 - `OPENAI_API_KEY` - GPT-5 access
 - `ELEVENLABS_API_KEY` - Voice agent access
 - `JWT_SECRET` - Secret for JWT signing (generate random string)
-- `ADMIN_USERNAMES` - Comma-separated admin usernames
+- `ADMIN_USERNAMES` - Comma-separated admin usernames (matched without domain suffix, e.g., "bbohm" matches "bbohm@SU.SE")
 
 ## File Structure
 

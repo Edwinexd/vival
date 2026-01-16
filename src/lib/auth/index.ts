@@ -13,10 +13,16 @@ export interface Session {
   exp: number;
 }
 
+// Extract base username without domain suffix (e.g., "bbohm@SU.SE" -> "bbohm")
+export function normalizeUsername(username: string): string {
+  return username.split('@')[0].toLowerCase();
+}
+
 export function isAdmin(username: string): boolean {
   const adminUsernames = process.env.ADMIN_USERNAMES || '';
-  const admins = adminUsernames.split(',').map((u) => u.trim().toLowerCase());
-  return admins.includes(username.toLowerCase());
+  const admins = adminUsernames.split(',').map((u) => normalizeUsername(u.trim()));
+  const normalizedUser = normalizeUsername(username);
+  return admins.includes(normalizedUser);
 }
 
 export async function createSession(username: string): Promise<string> {

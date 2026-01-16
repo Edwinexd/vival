@@ -31,3 +31,9 @@ variable "wireguard_config" {
   type        = string
   sensitive   = true
 }
+
+variable "ssh_private_key" {
+  description = "SSH private key for CI user to tunnel to k3s"
+  type        = string
+  sensitive   = true
+}

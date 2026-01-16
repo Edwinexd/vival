@@ -22,10 +22,17 @@ jobs:
 
       - name: Setup WireGuard
         run: |
-          # Insert PrivateKey after Address line in [Interface] section
           echo "${{ secrets.WIREGUARD_CONFIG }}" | sed "/^\[Interface\]/a PrivateKey = ${{ secrets.WIREGUARD_PRIVATE_KEY }}" | sudo tee /etc/wireguard/wg0.conf
           sudo chmod 600 /etc/wireguard/wg0.conf
           sudo wg-quick up wg0
+
+      - name: Setup SSH tunnel
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan prog2review.dsv.su.se >> ~/.ssh/known_hosts 2>/dev/null
+          ssh -fN -L 6443:127.0.0.1:6443 ci@prog2review.dsv.su.se
 
       - name: Setup kubeconfig
         run: |
@@ -46,6 +53,8 @@ jobs:
         run: |
           kubectl exec -n prog2review deployment/prog2review-app -- npx tsx src/lib/db/migrate.ts
 
-      - name: Teardown WireGuard
+      - name: Teardown
         if: always()
-        run: sudo wg-quick down wg0 || true
+        run: |
+          pkill -f "ssh -fN -L 6443" || true
+          sudo wg-quick down wg0 || true

@@ -47,3 +47,10 @@ resource "github_actions_environment_secret" "prod_wireguard_config" {
   secret_name     = "WIREGUARD_CONFIG"
   plaintext_value = var.wireguard_config
 }
+
+resource "github_actions_environment_secret" "prod_ssh_private_key" {
+  repository      = data.github_repository.repo.name
+  environment     = github_repository_environment.prod.environment
+  secret_name     = "SSH_PRIVATE_KEY"
+  plaintext_value = var.ssh_private_key
+}

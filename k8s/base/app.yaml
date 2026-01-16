@@ -1,0 +1,111 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prog2review-app
+  namespace: prog2review
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prog2review-app
+  template:
+    metadata:
+      labels:
+        app: prog2review-app
+    spec:
+      containers:
+        - name: app
+          image: ghcr.io/edwinexd/dsv-prog2review:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: NEXT_PUBLIC_AUTH_MODE
+              value: "saml"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: prog2review-secrets
+                  key: DATABASE_URL
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: ID_GENERATOR_URL
+              value: "http://id-generator:8080"
+            - name: COMPILER_URL
+              value: "http://java-compiler:3001"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: prog2review-secrets
+                  key: JWT_SECRET
+            - name: ADMIN_USERNAMES
+              valueFrom:
+                secretKeyRef:
+                  name: prog2review-secrets
+                  key: ADMIN_USERNAMES
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: prog2review-secrets
+                  key: OPENAI_API_KEY
+            - name: ELEVENLABS_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: prog2review-secrets
+                  key: ELEVENLABS_API_KEY
+            - name: ELEVENLABS_AGENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: prog2review-secrets
+                  key: ELEVENLABS_AGENT_ID
+            - name: ELEVENLABS_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: prog2review-secrets
+                  key: ELEVENLABS_WEBHOOK_SECRET
+            - name: BASE_URL
+              value: "https://prog2review.dsv.su.se"
+            - name: MAIL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: prog2review-secrets
+                  key: MAIL_USER
+            - name: MAIL_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: prog2review-secrets
+                  key: MAIL_PASS
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          readinessProbe:
+            httpGet:
+              path: /api/auth/me
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/auth/me
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prog2review-app
+  namespace: prog2review
+spec:
+  type: NodePort
+  selector:
+    app: prog2review-app
+  ports:
+    - port: 3000
+      targetPort: 3000
+      nodePort: 30080

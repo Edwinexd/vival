@@ -1,0 +1,62 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: prog2review-postgres
+    environment:
+      POSTGRES_USER: prog2review
+      POSTGRES_PASSWORD: prog2review
+      POSTGRES_DB: prog2review
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U prog2review"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: prog2review-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  id-generator:
+    image: ghcr.io/edthing/id-generator:latest
+    container_name: prog2review-id-generator
+    environment:
+      WORKER_ID: 1
+    ports:
+      - "8080:8080"
+
+  java-compiler:
+    build: ./compiler
+    container_name: prog2review-compiler
+    ports:
+      - "3001:3001"
+    cpus: 0.5
+    mem_limit: 256m
+    read_only: true
+    tmpfs:
+      - /tmp:size=32M,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  postgres_data:
+  redis_data:

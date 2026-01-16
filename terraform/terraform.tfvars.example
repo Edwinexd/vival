@@ -1,0 +1,27 @@
+# GitHub Configuration
+github_owner = "Edwinexd"
+github_repo  = "dsv-prog2review"
+
+# =============================================================================
+# Secrets
+# =============================================================================
+
+# Base64-encode your kubeconfig: base64 -w0 ~/.kube/config
+kubeconfig = ""
+
+# WireGuard private key (from wg genkey or existing config)
+wireguard_private_key = ""
+
+# WireGuard config WITHOUT the PrivateKey line
+# The workflow will inject the private key at runtime
+wireguard_config = <<-EOT
+[Interface]
+Address = 10.0.0.2/32
+DNS = 10.0.0.1
+
+[Peer]
+PublicKey = SERVER_PUBLIC_KEY_HERE
+AllowedIPs = 10.0.0.0/24, 192.168.0.0/16
+Endpoint = vpn.example.com:51820
+PersistentKeepalive = 25
+EOT

@@ -1,0 +1,39 @@
+{
+  "seminar": {
+    "room": {
+      "title": "Muntlig examination",
+      "subtitleSwedish": "Muntlig examination",
+      "subtitleEnglish": "Muntlig examination på engelska",
+      "sessionStatus": "Sessionsstatus",
+      "readyToStart": "Redo att starta din examination",
+      "connecting": "Ansluter till examinator...",
+      "inProgress": "Examination pågår",
+      "ended": "Examination avslutad",
+      "connectionError": "Anslutningsfel",
+      "waitingForSlot": "Väntar på ledig plats",
+      "slotsInUse": "{active} av {max} platser används",
+      "pageWillUpdate": "Sidan uppdateras automatiskt när en plats blir ledig.",
+      "readyToBegin": "Redo att börja",
+      "readyInstructions": "Klicka på knappen nedan för att starta din muntliga examination. Se till att din mikrofon fungerar.",
+      "startExamination": "Starta examination",
+      "pleaseWait": "Vänta medan vi ansluter dig till examinatorn.",
+      "examinationComplete": "Examination avslutad",
+      "examinationRecorded": "Din examination har spelats in. En administratör kommer att granska sessionen och ge dig dina resultat.",
+      "connectionErrorTitle": "Anslutningsfel",
+      "error": "Fel",
+      "mute": "Stäng av mikrofon",
+      "unmute": "Slå på mikrofon",
+      "endCall": "Avsluta samtal",
+      "beforeYouBegin": "Innan du börjar",
+      "instructions": {
+        "quietEnvironment": "Se till att du befinner dig i en lugn miljö",
+        "testMicrophone": "Testa din mikrofon innan du börjar",
+        "duration": "Examinationen tar cirka 30 minuter",
+        "speakClearly": "Tala tydligt och ta dig tid att svara på frågorna",
+        "aboutCode": "Du kommer att få frågor om din inlämnade kod",
+        "conductedInSwedish": "Examinationen kommer att genomföras på svenska",
+        "conductedInEnglish": "Examinationen kommer att genomföras på engelska"
+      }
+    }
+  }
+}

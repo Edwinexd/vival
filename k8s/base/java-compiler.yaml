@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: java-compiler
+  namespace: prog2review
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: java-compiler
+  template:
+    metadata:
+      labels:
+        app: java-compiler
+    spec:
+      containers:
+        - name: java-compiler
+          image: ghcr.io/edwinexd/dsv-prog2review-compiler:latest
+          ports:
+            - containerPort: 3001
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 32Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: java-compiler
+  namespace: prog2review
+spec:
+  selector:
+    app: java-compiler
+  ports:
+    - port: 3001
+      targetPort: 3001

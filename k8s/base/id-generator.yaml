@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: id-generator
+  namespace: prog2review
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: id-generator
+  template:
+    metadata:
+      labels:
+        app: id-generator
+    spec:
+      containers:
+        - name: id-generator
+          image: ghcr.io/edthing/id-generator:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: WORKER_ID
+              value: "1"
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "25m"
+            limits:
+              memory: "64Mi"
+              cpu: "100m"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: id-generator
+  namespace: prog2review
+spec:
+  selector:
+    app: id-generator
+  ports:
+    - port: 8080
+      targetPort: 8080

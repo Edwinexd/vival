@@ -43,6 +43,10 @@ jobs:
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
 
+      - name: Create k8s secrets file
+        run: |
+          echo "${{ secrets.K8S_SECRETS }}" | base64 -d > k8s/overlays/prod/secrets.yaml
+
       - name: Deploy to Kubernetes
         run: |
           kubectl apply -k k8s/overlays/prod

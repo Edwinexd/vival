@@ -61,6 +61,8 @@ interface Assignment {
   review_prompt: string | null;
   seminar_prompt: string | null;
   due_date: string | null;
+  target_time_minutes: number | null;
+  max_time_minutes: number | null;
   created_at: string;
 }
 
@@ -74,6 +76,8 @@ const defaultFormData = {
   newCourseCode: "",
   newCourseName: "",
   newCourseSemester: "",
+  targetTimeMinutes: "30",
+  maxTimeMinutes: "35",
 };
 
 export default function AssignmentsPage() {
@@ -134,6 +138,8 @@ export default function AssignmentsPage() {
         reviewPrompt: formData.reviewPrompt || undefined,
         seminarPrompt: formData.seminarPrompt || undefined,
         dueDate: formData.dueDate || undefined,
+        targetTimeMinutes: formData.targetTimeMinutes ? parseInt(formData.targetTimeMinutes, 10) : undefined,
+        maxTimeMinutes: formData.maxTimeMinutes ? parseInt(formData.maxTimeMinutes, 10) : undefined,
       };
 
       if (courseTab === "existing") {
@@ -179,6 +185,8 @@ export default function AssignmentsPage() {
       seminarPrompt: assignment.seminar_prompt || "",
       dueDate: assignment.due_date ? assignment.due_date.split("T")[0] : "",
       courseId: assignment.course_id,
+      targetTimeMinutes: assignment.target_time_minutes?.toString() || "30",
+      maxTimeMinutes: assignment.max_time_minutes?.toString() || "35",
     });
     setEditDialogOpen(true);
   };
@@ -201,6 +209,8 @@ export default function AssignmentsPage() {
           reviewPrompt: formData.reviewPrompt || undefined,
           seminarPrompt: formData.seminarPrompt || undefined,
           dueDate: formData.dueDate || undefined,
+          targetTimeMinutes: formData.targetTimeMinutes ? parseInt(formData.targetTimeMinutes, 10) : undefined,
+          maxTimeMinutes: formData.maxTimeMinutes ? parseInt(formData.maxTimeMinutes, 10) : undefined,
         }),
       });
 
@@ -350,6 +360,37 @@ export default function AssignmentsPage() {
                 />
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Target Duration (minutes)</Label>
+                  <Input
+                    type="number"
+                    min="5"
+                    max="120"
+                    placeholder="30"
+                    value={formData.targetTimeMinutes}
+                    onChange={(e) => setFormData({ ...formData, targetTimeMinutes: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Ideal examination duration used by AI.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Max Duration (minutes)</Label>
+                  <Input
+                    type="number"
+                    min="5"
+                    max="120"
+                    placeholder="35"
+                    value={formData.maxTimeMinutes}
+                    onChange={(e) => setFormData({ ...formData, maxTimeMinutes: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Timer countdown shown to student.
+                  </p>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label>Review Prompt (for GPT code review)</Label>
                 <Textarea
@@ -431,6 +472,7 @@ export default function AssignmentsPage() {
                   <TableHead>Assignment</TableHead>
                   <TableHead>Course</TableHead>
                   <TableHead>Due Date</TableHead>
+                  <TableHead>Duration</TableHead>
                   <TableHead>Prompts</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
@@ -459,6 +501,11 @@ export default function AssignmentsPage() {
                         )}
                       </TableCell>
                       <TableCell>{formatDate(assignment.due_date)}</TableCell>
+                      <TableCell>
+                        <span className="text-sm">
+                          {assignment.target_time_minutes ?? 30}/{assignment.max_time_minutes ?? 35} min
+                        </span>
+                      </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
                           {assignment.review_prompt && (
@@ -531,6 +578,29 @@ export default function AssignmentsPage() {
                 value={formData.dueDate}
                 onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Target Duration (minutes)</Label>
+                <Input
+                  type="number"
+                  min="5"
+                  max="120"
+                  value={formData.targetTimeMinutes}
+                  onChange={(e) => setFormData({ ...formData, targetTimeMinutes: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Max Duration (minutes)</Label>
+                <Input
+                  type="number"
+                  min="5"
+                  max="120"
+                  value={formData.maxTimeMinutes}
+                  onChange={(e) => setFormData({ ...formData, maxTimeMinutes: e.target.value })}
+                />
+              </div>
             </div>
 
             <div className="space-y-2">

@@ -96,7 +96,7 @@
       "duration": "Duration",
       "conversationTranscript": "Conversation Transcript",
       "fullTranscript": "Full transcript of the oral examination",
-      "examiner": "Examiner",
+      "examiner": "AI",
       "grading": "Grading",
       "gradingDescription": "Review the transcript and provide a grade",
       "noTranscript": "No transcript available for this seminar",

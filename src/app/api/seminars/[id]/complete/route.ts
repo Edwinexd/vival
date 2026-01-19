@@ -42,6 +42,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  // Parse request body first
+  const body = await request.json().catch(() => ({}));
+  const clientStatus = body.status === 'ended' ? 'completed' : 'failed';
+  const clientDuration = body.duration || 0;
+
+  console.log(`[Complete] Seminar ${seminarId}: client reported status=${body.status}, duration=${clientDuration}`);
+
   // Only process if seminar is still in_progress (webhook might have already handled it)
   if (seminar.status !== 'in_progress') {
     return NextResponse.json({
@@ -53,12 +60,38 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   const conversationId = seminar.elevenlabs_conversation_id;
 
+  // If client reported error/failure, mark as failed and reset submission status
+  if (clientStatus === 'failed') {
+    await sql`
+      UPDATE seminars
+      SET status = 'failed', ended_at = NOW(), duration_seconds = ${clientDuration}
+      WHERE id = ${seminarId}
+    `;
+    // Reset submission so student can try again
+    await sql`
+      UPDATE submissions
+      SET status = 'reviewed'
+      WHERE id = ${seminar.submission_id}
+    `;
+    console.log(`[Complete] Seminar ${seminarId} marked as failed, submission reset to reviewed`);
+    return NextResponse.json({
+      success: true,
+      message: 'Seminar marked as failed',
+      status: 'failed',
+    });
+  }
+
   if (!conversationId) {
-    // No conversation ID - just mark as failed
+    // No conversation ID but client said 'ended' - unusual, mark as failed
     await sql`
       UPDATE seminars
       SET status = 'failed', ended_at = NOW()
       WHERE id = ${seminarId}
+    `;
+    await sql`
+      UPDATE submissions
+      SET status = 'reviewed'
+      WHERE id = ${seminar.submission_id}
     `;
     return NextResponse.json({
       success: true,
@@ -70,11 +103,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   // Try to get conversation status from ElevenLabs
   try {
     const convStatus = await getConversationStatus(conversationId);
-    console.log(`Conversation ${conversationId} status from ElevenLabs:`, convStatus);
+    console.log(`[Complete] Conversation ${conversationId} status from ElevenLabs:`, convStatus);
 
     // Complete the seminar with the status from ElevenLabs
     const status = convStatus.status === 'completed' ? 'completed' : 'failed';
-    const duration = convStatus.duration_seconds || 0;
+    const duration = convStatus.duration_seconds || clientDuration;
 
     await completeSeminar(conversationId, status, duration);
 
@@ -85,13 +118,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       duration,
     });
   } catch (error) {
-    console.error('Failed to get conversation status from ElevenLabs:', error);
+    console.error('[Complete] Failed to get conversation status from ElevenLabs:', error);
 
-    // Mark as failed if we can't get status
-    const body = await request.json().catch(() => ({}));
-    const clientStatus = body.status === 'ended' ? 'completed' : 'failed';
-    const clientDuration = body.duration || 0;
-
+    // Mark as completed based on client status
     await completeSeminar(conversationId, clientStatus, clientDuration);
 
     return NextResponse.json({

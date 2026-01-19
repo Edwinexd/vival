@@ -37,3 +37,9 @@ variable "ssh_private_key" {
   type        = string
   sensitive   = true
 }
+
+variable "k8s_secrets" {
+  description = "Base64-encoded k8s secrets.yaml content"
+  type        = string
+  sensitive   = true
+}

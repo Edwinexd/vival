@@ -11,6 +11,7 @@ import {
   type TranscriptEntry,
   type ConversationConfigOverride,
 } from '@/lib/elevenlabs';
+import { processTranscriptGrading } from './gradingService';
 
 export interface StartSeminarResult {
   success: boolean;
@@ -49,6 +50,8 @@ export async function startSeminar(seminarId: string): Promise<StartSeminarResul
       r.parsed_feedback,
       a.name as assignment_name,
       a.description as assignment_description,
+      a.target_time_minutes,
+      a.max_time_minutes,
       u.name as student_name,
       u.su_username,
       slot.max_concurrent
@@ -112,9 +115,26 @@ export async function startSeminar(seminarId: string): Promise<StartSeminarResul
         ? JSON.parse(seminar.discussion_plan)
         : seminar.discussion_plan;
 
-      discussionPlan = parsed || {};
-      if (!Array.isArray(discussionPlan.keyTopics)) discussionPlan.keyTopics = [];
-      if (!Array.isArray(discussionPlan.conceptChecks)) discussionPlan.conceptChecks = [];
+      // Handle different formats: array of topics OR {overview, keyTopics, conceptChecks}
+      if (Array.isArray(parsed)) {
+        // Convert array format to expected structure
+        discussionPlan = {
+          overview: seminar.parsed_feedback || 'A programming assignment submission.',
+          keyTopics: parsed.map((t: { topic: string; question: string; expectedAnswer: string; followUpQuestions?: string[]; context?: string }) => ({
+            topic: t.topic,
+            question: t.question,
+            expectedAnswer: t.expectedAnswer,
+            followUp: Array.isArray(t.followUpQuestions) ? t.followUpQuestions.join(' ') : '',
+            redFlags: [],
+          })),
+          conceptChecks: [],
+        };
+      } else {
+        discussionPlan = parsed || {};
+        if (!discussionPlan.overview) discussionPlan.overview = 'A programming assignment submission.';
+        if (!Array.isArray(discussionPlan.keyTopics)) discussionPlan.keyTopics = [];
+        if (!Array.isArray(discussionPlan.conceptChecks)) discussionPlan.conceptChecks = [];
+      }
     } else {
       // Fallback if no discussion plan exists
       discussionPlan = {
@@ -140,10 +160,18 @@ export async function startSeminar(seminarId: string): Promise<StartSeminarResul
       assignmentDescription: seminar.assignment_description || '',
       discussionPlan,
       language: seminar.language || 'en',
+      targetTimeMinutes: seminar.target_time_minutes ?? 30,
+      maxTimeMinutes: seminar.max_time_minutes ?? 35,
     };
 
     // Generate system prompt
     const systemPrompt = generateSystemPrompt(context);
+
+    // Build first message for the agent
+    const firstName = context.studentName.split(' ')[0];
+    const firstMessage = seminar.language === 'sv'
+      ? `Hej ${firstName}! Välkommen till din muntliga examination för ${seminar.assignment_name}. Kan du börja med att berätta med egna ord vad din kod gör?`
+      : `Hello ${firstName}! Welcome to your oral examination for ${seminar.assignment_name}. Could you start by describing in your own words what your code does?`;
 
     // Build config override to send via WebSocket
     const configOverride: ConversationConfigOverride = {
@@ -151,6 +179,7 @@ export async function startSeminar(seminarId: string): Promise<StartSeminarResul
         prompt: {
           prompt: systemPrompt,
         },
+        first_message: firstMessage,
         language: seminar.language || 'en',
       },
     };
@@ -238,9 +267,11 @@ export async function completeSeminar(
   `;
 
   // Fetch and save transcript
+  let transcriptSaved = false;
   try {
     const transcript = await getConversationTranscript(conversationId);
     await saveTranscript(seminar.id, transcript);
+    transcriptSaved = true;
   } catch (error) {
     console.error('Failed to fetch transcript:', error);
   }
@@ -253,6 +284,13 @@ export async function completeSeminar(
     }
   } catch (error) {
     console.error('Failed to fetch audio recording:', error);
+  }
+
+  // Trigger AI grading asynchronously (non-blocking) if seminar completed and transcript saved
+  if (status === 'completed' && transcriptSaved) {
+    processTranscriptGrading(seminar.id).catch(error => {
+      console.error('Failed to process transcript grading:', error);
+    });
   }
 }
 

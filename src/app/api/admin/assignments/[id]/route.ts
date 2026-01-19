@@ -44,7 +44,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, description, reviewPrompt, seminarPrompt, dueDate } = body;
+    const { name, description, reviewPrompt, seminarPrompt, dueDate, targetTimeMinutes, maxTimeMinutes } = body;
 
     const existing = await getAssignmentById(id);
     if (!existing) {
@@ -57,6 +57,8 @@ export async function PUT(
       review_prompt: reviewPrompt || undefined,
       seminar_prompt: seminarPrompt || undefined,
       due_date: dueDate ? new Date(dueDate) : undefined,
+      target_time_minutes: targetTimeMinutes || undefined,
+      max_time_minutes: maxTimeMinutes || undefined,
     });
 
     return NextResponse.json({ assignment });

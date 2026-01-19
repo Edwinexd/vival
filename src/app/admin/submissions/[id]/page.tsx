@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Loader2, Play } from "lucide-react";
+import { ArrowLeft, Loader2, Play, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { CodeViewer } from "@/components/code-viewer";
 
@@ -49,6 +49,31 @@ interface SubmissionInfo {
   filename: string | null;
   status: string;
   uploaded_at: string;
+  seminar_id: string | null;
+  seminar_status: string | null;
+  ai_grade_status: string | null;
+  ai_suggested_score: number | null;
+}
+
+interface AiGradeData {
+  id: string;
+  seminarId: string;
+  submissionId: string;
+  status: string;
+  scores: {
+    strict: number | null;
+    balanced: number | null;
+    generous: number | null;
+  };
+  reasonings: {
+    strict: string | null;
+    balanced: string | null;
+    generous: string | null;
+  };
+  suggestedScore: number | null;
+  scoringMethod: string;
+  errorMessage: string | null;
+  completedAt: string | null;
 }
 
 function getStatusBadgeVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
@@ -75,10 +100,10 @@ function formatDate(dateStr: string): string {
 }
 
 async function fetchSubmission(submissionId: string): Promise<SubmissionInfo | null> {
-  const res = await fetch(`/api/admin/submissions?id=${submissionId}`);
+  const res = await fetch(`/api/admin/submissions/${submissionId}`);
   if (!res.ok) return null;
   const data = await res.json();
-  return data.submissions?.[0] || null;
+  return data.submission || null;
 }
 
 async function fetchReview(submissionId: string): Promise<ReviewData | null> {
@@ -99,6 +124,24 @@ async function triggerReviewApi(submissionId: string): Promise<void> {
   }
 }
 
+async function fetchAiGrade(seminarId: string): Promise<AiGradeData | null> {
+  const res = await fetch(`/api/admin/seminars/${seminarId}/ai-grade`);
+  if (!res.ok) return null;
+  const data = await res.json();
+  if (data.status === "not_started") return null;
+  return data;
+}
+
+async function retryAiGrading(seminarId: string): Promise<void> {
+  const res = await fetch(`/api/admin/seminars/${seminarId}/ai-grade`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || "Failed to retry grading");
+  }
+}
+
 export default function SubmissionDetailPage() {
   const params = useParams();
   const submissionId = params.id as string;
@@ -116,6 +159,12 @@ export default function SubmissionDetailPage() {
     enabled: !!submissionId,
   });
 
+  const { data: aiGradeData, isLoading: loadingAiGrade } = useQuery({
+    queryKey: ["ai-grade", submission?.seminar_id],
+    queryFn: () => fetchAiGrade(submission!.seminar_id!),
+    enabled: !!submission?.seminar_id && submission.seminar_status === "completed",
+  });
+
   const triggerReviewMutation = useMutation({
     mutationFn: () => triggerReviewApi(submissionId),
     onSuccess: () => {
@@ -128,7 +177,19 @@ export default function SubmissionDetailPage() {
     },
   });
 
-  const loading = loadingSubmission || loadingReview;
+  const retryGradingMutation = useMutation({
+    mutationFn: () => retryAiGrading(submission!.seminar_id!),
+    onSuccess: () => {
+      toast.success("AI grading started");
+      queryClient.invalidateQueries({ queryKey: ["ai-grade", submission?.seminar_id] });
+      queryClient.invalidateQueries({ queryKey: ["submission", submissionId] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to start grading");
+    },
+  });
+
+  const loading = loadingSubmission || loadingReview || loadingAiGrade;
 
   if (loading) {
     return (
@@ -241,6 +302,9 @@ export default function SubmissionDetailPage() {
           <TabsTrigger value="issues">
             Issues ({reviewData?.issues?.length || 0})
           </TabsTrigger>
+          {submission?.seminar_status === "completed" && (
+            <TabsTrigger value="ai-grade">AI Grade</TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="code" className="mt-6">
@@ -354,6 +418,111 @@ export default function SubmissionDetailPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {submission?.seminar_status === "completed" && (
+          <TabsContent value="ai-grade" className="mt-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>AI Seminar Grade</CardTitle>
+                    <CardDescription>
+                      Automated grading of the oral examination transcript
+                    </CardDescription>
+                  </div>
+                  {submission?.seminar_id && (aiGradeData?.status === "failed" || !aiGradeData) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => retryGradingMutation.mutate()}
+                      disabled={retryGradingMutation.isPending}
+                    >
+                      {retryGradingMutation.isPending ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                      )}
+                      {aiGradeData ? "Retry Grading" : "Start Grading"}
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {!aiGradeData ? (
+                  <p className="text-muted-foreground py-8 text-center">
+                    AI grading not started. Click &quot;Start Grading&quot; to analyze the seminar transcript.
+                  </p>
+                ) : aiGradeData.status === "pending" || aiGradeData.status === "in_progress" ? (
+                  <div className="flex items-center justify-center py-8 gap-2">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    <span className="text-muted-foreground">Grading in progress...</span>
+                  </div>
+                ) : aiGradeData.status === "failed" ? (
+                  <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+                    <p className="text-sm font-medium text-destructive mb-2">Grading failed</p>
+                    <p className="text-sm text-destructive/80">{aiGradeData.errorMessage || "Unknown error"}</p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-4">
+                      <div className="text-center">
+                        <div className="text-4xl font-bold text-primary">
+                          {aiGradeData.suggestedScore ?? "N/A"}
+                        </div>
+                        <div className="text-sm text-muted-foreground">Suggested Score</div>
+                        <div className="text-xs text-muted-foreground">
+                          ({aiGradeData.scoringMethod})
+                        </div>
+                      </div>
+                      <div className="flex-1 grid grid-cols-3 gap-4">
+                        <div className="text-center p-3 bg-muted rounded-lg">
+                          <div className="text-xl font-semibold">{aiGradeData.scores.strict ?? "—"}</div>
+                          <div className="text-xs text-muted-foreground">Strict</div>
+                        </div>
+                        <div className="text-center p-3 bg-muted rounded-lg">
+                          <div className="text-xl font-semibold">{aiGradeData.scores.balanced ?? "—"}</div>
+                          <div className="text-xs text-muted-foreground">Balanced</div>
+                        </div>
+                        <div className="text-center p-3 bg-muted rounded-lg">
+                          <div className="text-xl font-semibold">{aiGradeData.scores.generous ?? "—"}</div>
+                          <div className="text-xs text-muted-foreground">Generous</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <h4 className="font-medium">Grading Reasoning</h4>
+                      {aiGradeData.reasonings.strict && (
+                        <div className="p-3 bg-muted rounded-lg">
+                          <div className="text-xs font-medium text-muted-foreground mb-1">Strict Assessment</div>
+                          <p className="text-sm">{aiGradeData.reasonings.strict}</p>
+                        </div>
+                      )}
+                      {aiGradeData.reasonings.balanced && (
+                        <div className="p-3 bg-muted rounded-lg">
+                          <div className="text-xs font-medium text-muted-foreground mb-1">Balanced Assessment</div>
+                          <p className="text-sm">{aiGradeData.reasonings.balanced}</p>
+                        </div>
+                      )}
+                      {aiGradeData.reasonings.generous && (
+                        <div className="p-3 bg-muted rounded-lg">
+                          <div className="text-xs font-medium text-muted-foreground mb-1">Generous Assessment</div>
+                          <p className="text-sm">{aiGradeData.reasonings.generous}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {aiGradeData.completedAt && (
+                      <p className="text-xs text-muted-foreground">
+                        Graded: {formatDate(aiGradeData.completedAt)}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

@@ -96,7 +96,7 @@
       "duration": "Längd",
       "conversationTranscript": "Samtalsutskrift",
       "fullTranscript": "Fullständig utskrift av den muntliga examinationen",
-      "examiner": "Examinator",
+      "examiner": "AI",
       "grading": "Betygsättning",
       "gradingDescription": "Granska utskriften och sätt betyg",
       "noTranscript": "Ingen transkription tillgänglig för detta seminarium",

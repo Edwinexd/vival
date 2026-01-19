@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { name, description, reviewPrompt, seminarPrompt, dueDate, courseId, newCourse } = body;
+    const { name, description, reviewPrompt, seminarPrompt, dueDate, courseId, newCourse, targetTimeMinutes, maxTimeMinutes } = body;
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return NextResponse.json({ error: 'Assignment name is required' }, { status: 400 });
@@ -69,7 +69,9 @@ export async function POST(request: NextRequest) {
       description || undefined,
       reviewPrompt || undefined,
       seminarPrompt || undefined,
-      dueDate ? new Date(dueDate) : undefined
+      dueDate ? new Date(dueDate) : undefined,
+      targetTimeMinutes || undefined,
+      maxTimeMinutes || undefined
     );
 
     return NextResponse.json({ assignment });

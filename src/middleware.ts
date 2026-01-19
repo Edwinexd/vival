@@ -85,6 +85,10 @@ export async function middleware(request: NextRequest) {
     if (!session) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
+    // Redirect admins to admin portal
+    if (session.isAdmin) {
+      return NextResponse.redirect(new URL('/admin', request.url));
+    }
     return NextResponse.next();
   }
 

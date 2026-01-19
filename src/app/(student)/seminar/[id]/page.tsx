@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useLayoutEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -12,8 +12,15 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Mic, MicOff, Phone, PhoneOff, Loader2, Clock, AlertCircle } from "lucide-react";
+import { Mic, MicOff, Phone, PhoneOff, Loader2, Clock, AlertCircle, Code, MessageSquare } from "lucide-react";
 import { useConversation } from "@/lib/elevenlabs/useConversation";
+import { CodeViewer } from "@/components/code-viewer";
+
+interface SubmissionData {
+  filename: string | null;
+  fileContent: string | null;
+  assignmentName: string;
+}
 
 interface SeminarStatus {
   id: string;
@@ -23,7 +30,10 @@ interface SeminarStatus {
   canStartReason?: string;
   activeCount?: number;
   maxConcurrent?: number;
+  targetTimeMinutes?: number;
+  maxTimeMinutes?: number;
   conversationId: string | null;
+  submission?: SubmissionData | null;
 }
 
 export default function SeminarRoomPage() {
@@ -34,6 +44,11 @@ export default function SeminarRoomPage() {
   const [status, setStatus] = useState<SeminarStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
+  const [transcript, setTranscript] = useState<Array<{ role: 'agent' | 'user'; text: string }>>([]);
+  const [highlightedLines, setHighlightedLines] = useState<number[]>([]);
+  const [showCode, setShowCode] = useState(true);
+  const [showConversation, setShowConversation] = useState(true);
+  const transcriptRef = useRef<HTMLDivElement>(null);
 
   const t = useTranslations("seminar.room");
   const tc = useTranslations("common");
@@ -81,6 +96,12 @@ export default function SeminarRoomPage() {
         router.push('/results');
       } else if (newState === 'error') {
         notifyCompletion('error');
+      }
+    },
+    onMessage: (text, role) => {
+      console.log('[Transcript] Adding message:', { role, text: text.slice(0, 50) });
+      if (text.trim()) {
+        setTranscript(prev => [...prev, { role, text }]);
       }
     },
     onError: (err) => {
@@ -168,6 +189,54 @@ export default function SeminarRoomPage() {
 
   // Derive connection state from conversation hook
   const connectionState = isStarting ? 'connecting' : conversation.state;
+
+  // Auto-scroll transcript
+  useLayoutEffect(() => {
+    if (transcriptRef.current) {
+      transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight;
+    }
+  }, [transcript]);
+
+  // Auto-highlight code based on conversation (debounced)
+  const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (transcript.length === 0 || !showCode || !status?.submission?.fileContent) return;
+
+    // Debounce the highlight request
+    if (highlightTimeoutRef.current) {
+      clearTimeout(highlightTimeoutRef.current);
+    }
+
+    highlightTimeoutRef.current = setTimeout(async () => {
+      // Get last few messages for context
+      const recentMessages = transcript.slice(-4);
+      const recentTranscript = recentMessages
+        .map(m => `${m.role === 'user' ? 'Student' : 'AI'}: ${m.text}`)
+        .join('\n');
+
+      try {
+        const res = await fetch(`/api/seminars/${seminarId}/highlight`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ recentTranscript }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.lines && Array.isArray(data.lines)) {
+            setHighlightedLines(data.lines);
+          }
+        }
+      } catch {
+        // Ignore highlight errors
+      }
+    }, 2000); // Wait 2 seconds after last message
+
+    return () => {
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+    };
+  }, [transcript, showCode, status?.submission?.fileContent, seminarId]);
 
   // Duration tracking - updates durationRef for use in callbacks
   const [duration, setDuration] = useState(0);
@@ -278,55 +347,106 @@ export default function SeminarRoomPage() {
           )}
 
           {connectionState === 'connected' && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-center gap-2 text-2xl font-mono">
-                <Clock className="h-6 w-6" />
-                <span>{formatDuration(duration)}</span>
-                <span className="text-muted-foreground text-sm">/ 30:00</span>
-              </div>
-
-              <div className="h-32 bg-muted rounded-lg flex items-center justify-center">
-                <div className="flex items-center gap-1">
-                  {[...Array(20)].map((_, i) => (
-                    <div
-                      key={i}
-                      className="w-1 bg-primary rounded-full animate-pulse"
-                      style={{
-                        height: `${Math.random() * 60 + 20}px`,
-                        animationDelay: `${i * 50}ms`,
-                      }}
-                    />
-                  ))}
+            <div className="space-y-4">
+              {/* Header with timer and controls */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xl font-mono">
+                  <Clock className="h-5 w-5" />
+                  <span>{formatDuration(duration)}</span>
+                  <span className="text-muted-foreground text-sm">/ {status?.maxTimeMinutes ?? 35}:00</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowCode(!showCode)}
+                  >
+                    <Code className="mr-2 h-4 w-4" />
+                    {showCode ? 'Hide Code' : 'Show Code'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowConversation(!showConversation)}
+                  >
+                    <MessageSquare className="mr-2 h-4 w-4" />
+                    {showConversation ? 'Hide Chat' : 'Show Chat'}
+                  </Button>
+                  <Button
+                    variant={conversation.isMuted ? "destructive" : "outline"}
+                    size="sm"
+                    onClick={toggleMute}
+                  >
+                    {conversation.isMuted ? (
+                      <><MicOff className="mr-2 h-4 w-4" />{t("unmute")}</>
+                    ) : (
+                      <><Mic className="mr-2 h-4 w-4" />{t("mute")}</>
+                    )}
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleEndCall}
+                  >
+                    <PhoneOff className="mr-2 h-4 w-4" />
+                    {t("endCall")}
+                  </Button>
                 </div>
               </div>
 
-              <div className="flex items-center justify-center gap-4">
-                <Button
-                  variant={conversation.isMuted ? "destructive" : "outline"}
-                  size="lg"
-                  onClick={toggleMute}
-                >
-                  {conversation.isMuted ? (
-                    <>
-                      <MicOff className="mr-2 h-5 w-5" />
-                      {t("unmute")}
-                    </>
-                  ) : (
-                    <>
-                      <Mic className="mr-2 h-5 w-5" />
-                      {t("mute")}
-                    </>
-                  )}
-                </Button>
+              {/* Two-column layout: Code + Conversation */}
+              <div className={`grid gap-4 ${showCode && showConversation ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
+                {/* Code Panel */}
+                {showCode && status?.submission?.fileContent && (
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="bg-muted px-3 py-2 border-b text-sm font-medium flex items-center gap-2">
+                      <Code className="h-4 w-4" />
+                      {status.submission.filename || 'Code'}
+                    </div>
+                    <div className="h-80 overflow-auto">
+                      <CodeViewer
+                        code={status.submission.fileContent}
+                        filename={status.submission.filename}
+                        highlightLines={highlightedLines}
+                        showLineNumbers
+                      />
+                    </div>
+                  </div>
+                )}
 
-                <Button
-                  variant="destructive"
-                  size="lg"
-                  onClick={handleEndCall}
-                >
-                  <PhoneOff className="mr-2 h-5 w-5" />
-                  {t("endCall")}
-                </Button>
+                {/* Conversation Panel */}
+                {showConversation && (
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="bg-muted px-3 py-2 border-b text-sm font-medium">
+                      Conversation
+                    </div>
+                    <div ref={transcriptRef} className="h-80 p-4 overflow-y-auto">
+                      {transcript.length === 0 ? (
+                        <div className="flex items-center justify-center h-full text-muted-foreground">
+                          Conversation will appear here...
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-3">
+                          {transcript.map((msg, i) => (
+                            <div
+                              key={i}
+                              className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
+                                msg.role === 'user'
+                                  ? 'bg-primary text-primary-foreground ml-auto'
+                                  : 'bg-muted mr-auto'
+                              }`}
+                            >
+                              <span className="font-medium text-xs opacity-70 block mb-1">
+                                {msg.role === 'user' ? 'You' : 'AI'}
+                              </span>
+                              {msg.text}
+                            </div>
+                        ))}
+                      </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -374,7 +494,7 @@ export default function SeminarRoomPage() {
             <ul className="list-disc list-inside space-y-2 text-muted-foreground">
               <li>{t("instructions.quietEnvironment")}</li>
               <li>{t("instructions.testMicrophone")}</li>
-              <li>{t("instructions.duration")}</li>
+              <li>{t("instructions.duration", { targetTime: status.targetTimeMinutes ?? 30 })}</li>
               <li>{t("instructions.speakClearly")}</li>
               <li>{t("instructions.aboutCode")}</li>
               <li>

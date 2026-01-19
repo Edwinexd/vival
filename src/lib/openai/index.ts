@@ -378,3 +378,165 @@ export function getCondensedDiscussionPlan(discussionPlan: DiscussionPoint[]): s
     })
     .join("\n\n");
 }
+
+// Grading types and functions
+export type GradingVariation = 'strict' | 'balanced' | 'generous';
+
+export interface TranscriptGradeResult {
+  score: number;
+  reasoning: string;
+  topicsCovered: string[];
+  topicsMissed: string[];
+  redFlags: string[];
+}
+
+const GRADING_VARIATION_PROMPTS: Record<GradingVariation, string> = {
+  strict: `You are a STRICT academic examiner. Be rigorous in your assessment.
+- Penalize unclear or incomplete explanations
+- Require precise terminology and accurate descriptions
+- Deduct points for hesitation or uncertainty about their own code
+- A passing score requires demonstrating clear understanding`,
+
+  balanced: `You are a BALANCED academic examiner. Be fair and thorough.
+- Evaluate based on overall understanding demonstrated
+- Consider both correctness and clarity of explanations
+- Note both strengths and weaknesses
+- Give credit for partial understanding when appropriate`,
+
+  generous: `You are a SUPPORTIVE academic examiner. Give benefit of the doubt.
+- Focus on core understanding rather than perfect articulation
+- Account for nervousness in oral examination settings
+- Credit attempts to explain even if not perfectly worded
+- Prioritize whether the student understands the concepts`,
+};
+
+function buildGradingSystemPrompt(variation: GradingVariation, language: 'en' | 'sv'): string {
+  const variationInstructions = GRADING_VARIATION_PROMPTS[variation];
+  const languageNote = language === 'sv'
+    ? 'The transcript is in Swedish. Evaluate the content, not the language quality.'
+    : 'The transcript is in English.';
+
+  return `${variationInstructions}
+
+${languageNote}
+
+You are grading a student's oral examination based on comparing:
+1. The DISCUSSION PLAN (what topics/questions should be covered)
+2. The TRANSCRIPT (what the student actually said)
+
+Your task:
+- Compare what was asked vs what was answered
+- Evaluate depth of understanding demonstrated
+- Check if the student can explain their own code
+- Note any concerning patterns (reading from notes, vague answers, inability to answer follow-ups)
+
+Respond ONLY with valid JSON:
+{
+  "score": <integer 0-100>,
+  "reasoning": "<2-3 sentences explaining the score>",
+  "topicsCovered": ["<topic 1>", "<topic 2>"],
+  "topicsMissed": ["<missed topic 1>"],
+  "redFlags": ["<concern 1>"]
+}
+
+Scoring guide:
+- 90-100: Excellent understanding, clear explanations, handles follow-ups well
+- 75-89: Good understanding, minor gaps or unclear points
+- 60-74: Adequate understanding, some significant gaps
+- 40-59: Partial understanding, multiple concerning gaps
+- 0-39: Poor understanding, unable to explain core concepts`;
+}
+
+function buildGradingUserPrompt(
+  discussionPlan: DiscussionPoint[],
+  transcript: string
+): string {
+  const planText = discussionPlan.length > 0
+    ? discussionPlan.map((p, i) =>
+        `${i + 1}. Topic: ${p.topic}\n   Question: ${p.question}\n   Expected: ${p.expectedAnswer || 'N/A'}`
+      ).join('\n\n')
+    : 'No specific discussion plan available.';
+
+  return `## DISCUSSION PLAN (what should be covered)
+
+${planText}
+
+## TRANSCRIPT (what the student said)
+
+${transcript}
+
+Please grade this oral examination.`;
+}
+
+export async function gradeTranscript(
+  discussionPlan: DiscussionPoint[],
+  transcript: string,
+  language: 'en' | 'sv',
+  variation: GradingVariation
+): Promise<TranscriptGradeResult> {
+  const systemPrompt = buildGradingSystemPrompt(variation, language);
+  const userPrompt = buildGradingUserPrompt(discussionPlan, transcript);
+
+  log('info', `Grading transcript with variation: ${variation}`, {
+    model: GPT_MODEL,
+    variation,
+    language,
+    transcriptLength: transcript.length,
+    discussionPointCount: discussionPlan.length,
+  });
+
+  let response;
+  try {
+    response = await getOpenAI().chat.completions.create({
+      model: GPT_MODEL,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      response_format: { type: "json_object" },
+      max_completion_tokens: 2048,
+    });
+  } catch (error) {
+    const err = error as Error & { status?: number; code?: string };
+    log('error', `OpenAI API grading call failed`, {
+      error: err.message,
+      status: err.status,
+      code: err.code,
+      variation,
+    });
+    throw error;
+  }
+
+  log('info', `Grading response received`, {
+    model: response.model,
+    variation,
+    finishReason: response.choices[0]?.finish_reason,
+    promptTokens: response.usage?.prompt_tokens,
+    completionTokens: response.usage?.completion_tokens,
+  });
+
+  const rawResponse = response.choices[0]?.message?.content;
+  if (!rawResponse) {
+    throw new Error("No response from GPT for grading");
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(rawResponse);
+  } catch (parseError) {
+    log('error', `Failed to parse grading response`, {
+      error: (parseError as Error).message,
+      rawResponse: rawResponse.substring(0, 500),
+      variation,
+    });
+    throw new Error(`Failed to parse GPT grading response: ${(parseError as Error).message}`);
+  }
+
+  return {
+    score: typeof parsed.score === 'number' ? Math.max(0, Math.min(100, Math.round(parsed.score))) : 0,
+    reasoning: typeof parsed.reasoning === 'string' ? parsed.reasoning : '',
+    topicsCovered: Array.isArray(parsed.topicsCovered) ? parsed.topicsCovered.filter((t: unknown): t is string => typeof t === 'string') : [],
+    topicsMissed: Array.isArray(parsed.topicsMissed) ? parsed.topicsMissed.filter((t: unknown): t is string => typeof t === 'string') : [],
+    redFlags: Array.isArray(parsed.redFlags) ? parsed.redFlags.filter((f: unknown): f is string => typeof f === 'string') : [],
+  };
+}

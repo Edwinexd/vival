@@ -34,6 +34,7 @@ Automated code review and oral examination system for Stockholm University progr
 - Use BIGINT for all primary keys (from external Snowflake generator)
 - Submission statuses: 'pending', 'reviewing', 'reviewed', 'seminar_pending', 'seminar_completed', 'approved', 'rejected'
 - Seminar statuses: 'booked', 'waiting', 'in_progress', 'completed', 'failed', 'no_show'
+- AI grade statuses: 'pending', 'in_progress', 'completed', 'failed'
 
 ## Commands
 
@@ -61,6 +62,13 @@ kubectl apply -k k8s/overlays/prod
 cd terraform && terraform init
 terraform plan -var-file=terraform.tfvars
 terraform apply -var-file=terraform.tfvars
+
+# Local Database (Docker)
+docker exec prog2review-postgres psql -U prog2review -d prog2review -c "SQL"
+
+# Production Access
+ssh prog2review        # SSH to production server
+sudo su                # Switch to root (required for full access)
 ```
 
 ## Environment Variables
@@ -225,6 +233,42 @@ The GPT integration (`src/lib/openai/index.ts`) handles code review and discussi
 - `POST /api/admin/reviews/trigger` - Trigger single review `{ submissionId }`
 - `POST /api/admin/reviews/batch` - Trigger batch review `{ submissionIds[] }` (max 500)
 - `GET /api/admin/reviews/[submissionId]` - Get review details including condensed discussion plan
+
+## AI Seminar Grading
+
+Automated grading of seminar transcripts using 3 parallel GPT-5 instances with different grading perspectives.
+
+**Architecture:**
+- After seminar completion, `processTranscriptGrading()` is triggered asynchronously (non-blocking)
+- GPT-5 grades the transcript 3 times with different variations: strict, balanced, generous
+- Each instance compares the discussion plan (from code review) with what the student actually said
+- Suggested score is calculated from the 3 scores (average, or median if range > 20 points)
+
+**Grading Variations:**
+1. **Strict** - Rigorous assessment, penalizes unclear explanations
+2. **Balanced** - Fair evaluation based on overall understanding
+3. **Generous** - Gives benefit of doubt for nervousness, focuses on core understanding
+
+**Database** (`ai_grades` table):
+- `score_1`, `reasoning_1` - Strict grader results
+- `score_2`, `reasoning_2` - Balanced grader results
+- `score_3`, `reasoning_3` - Generous grader results
+- `suggested_score` - Calculated from the 3 scores
+- `scoring_method` - 'average' or 'median'
+- `status` - 'pending', 'in_progress', 'completed', 'failed'
+
+**Grading Service** (`src/services/gradingService.ts`):
+- `processTranscriptGrading(seminarId)` - Main entry point, runs 3 GPT instances in parallel
+- `calculateSuggestedScore(scores)` - Combines scores using average or median
+- `retryGrading(seminarId)` - Retry failed grading
+
+**API Routes:**
+- `GET /api/admin/seminars/[id]/ai-grade` - Get AI grade results
+- `POST /api/admin/seminars/[id]/ai-grade` - Retry grading
+
+**Admin UI:**
+- Submission detail page (`/admin/submissions/[id]`) shows AI Grade tab for completed seminars
+- Displays suggested score, individual grader scores, and reasoning for each perspective
 
 ## Admin Assignment Management
 

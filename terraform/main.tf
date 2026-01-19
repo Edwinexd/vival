@@ -54,3 +54,10 @@ resource "github_actions_environment_secret" "prod_ssh_private_key" {
   secret_name     = "SSH_PRIVATE_KEY"
   plaintext_value = var.ssh_private_key
 }
+
+resource "github_actions_environment_secret" "prod_k8s_secrets" {
+  repository      = data.github_repository.repo.name
+  environment     = github_repository_environment.prod.environment
+  secret_name     = "K8S_SECRETS"
+  plaintext_value = var.k8s_secrets
+}

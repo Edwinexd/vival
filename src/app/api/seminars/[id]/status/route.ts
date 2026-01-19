@@ -22,19 +22,23 @@ export async function GET(
     return NextResponse.json({ error: 'Seminar not found' }, { status: 404 });
   }
 
-  // Verify ownership (unless admin)
+  // Get submission details including code and assignment duration settings
   const sql = getDb();
-  const ownership = await sql`
-    SELECT u.su_username
+  const submissionData = await sql`
+    SELECT u.su_username, sub.file_content, sub.filename, a.name as assignment_name,
+           a.target_time_minutes, a.max_time_minutes
     FROM seminars s
     JOIN submissions sub ON s.submission_id = sub.id
     JOIN users u ON sub.student_id = u.id
+    JOIN assignments a ON sub.assignment_id = a.id
     WHERE s.id = ${seminarId}
   `;
 
-  if (ownership.length > 0 && !session.isAdmin && ownership[0].su_username !== session.username) {
+  if (submissionData.length > 0 && !session.isAdmin && submissionData[0].su_username !== session.username) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
+
+  const submission = submissionData[0] || null;
 
   // Get can-start status
   const canStart = await canStartSeminar(seminarId);
@@ -45,5 +49,12 @@ export async function GET(
     canStartReason: canStart.reason,
     activeCount: canStart.activeCount,
     maxConcurrent: canStart.maxConcurrent,
+    targetTimeMinutes: submission?.target_time_minutes ?? 30,
+    maxTimeMinutes: submission?.max_time_minutes ?? 35,
+    submission: submission ? {
+      filename: submission.filename,
+      fileContent: submission.file_content,
+      assignmentName: submission.assignment_name,
+    } : null,
   });
 }

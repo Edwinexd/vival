@@ -132,7 +132,7 @@ export function CodeViewer({
                       {lineNumber}
                     </span>
                     <span
-                      className="px-3 flex-1 whitespace-pre"
+                      className="px-3 flex-1 whitespace-pre-wrap break-words"
                       dangerouslySetInnerHTML={{ __html: lineHtml || " " }}
                     />
                   </div>

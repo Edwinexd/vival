@@ -14,11 +14,14 @@ const ELEVENLABS_API_URL = 'https://api.elevenlabs.io/v1';
  * Generate system prompt for the ElevenLabs agent based on discussion plan
  */
 export function generateSystemPrompt(context: SeminarContext): string {
-  const { studentName, assignmentName, assignmentDescription, discussionPlan, language } = context;
+  const { studentName, assignmentName, assignmentDescription, discussionPlan, language, targetTimeMinutes = 30, maxTimeMinutes = 35 } = context;
 
   const langInstruction = language === 'sv'
     ? 'Speak in Swedish throughout the conversation.'
     : 'Speak in English throughout the conversation.';
+
+  // Calculate time guidance for the examiner
+  const wrapUpTime = Math.max(targetTimeMinutes - 5, 5);
 
   const topicsSection = (discussionPlan.keyTopics || []).map((t, i) => `
 ### Topic ${i + 1}: ${t.topic}
@@ -32,8 +35,8 @@ export function generateSystemPrompt(context: SeminarContext): string {
     `- ${c.concept}: "${c.question}"`
   ).join('\n');
 
-  return `You are an oral examiner for a programming course at Stockholm University (DSV).
-You are conducting a 30-minute oral examination with ${studentName} about code they submitted for: ${assignmentName}
+  return `You are an AI assistant conducting an oral examination for a programming course at Stockholm University (DSV).
+You are conducting a ${targetTimeMinutes}-minute oral examination with ${studentName} about code they submitted for: ${assignmentName}
 
 ${langInstruction}
 
@@ -57,7 +60,7 @@ ${conceptsSection}
 3. Listen for red flags - rehearsed answers, inability to explain basics, inconsistencies
 4. Be encouraging but probe for genuine understanding
 5. If they seem stuck, use the follow-up questions to help them
-6. Keep track of time - aim to cover all major topics within 25-30 minutes
+6. Keep track of time - aim to cover all major topics within ${wrapUpTime}-${targetTimeMinutes} minutes
 7. At the end, thank them and let them know the examiner will review the session
 
 ## Important Guidelines

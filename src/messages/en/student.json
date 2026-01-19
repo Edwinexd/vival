@@ -45,7 +45,7 @@
       "awaitingReviewDescription": "These submissions need to be reviewed before you can book a seminar",
       "bookingInfo": "Booking Information",
       "infoTimeWindows": "Time Windows: When you book a time window (e.g., 10:00-11:00), you can start your seminar anytime within that period.",
-      "infoLanguage": "Language: Choose Swedish or English for your oral examination. The AI examiner will conduct the session in your selected language.",
+      "infoLanguage": "Language: Choose Swedish or English for your oral examination. The session will be conducted in your selected language.",
       "bookingSuccess": "Seminar booked successfully!",
       "bookingFailed": "Booking failed",
       "selectBoth": "Please select an assignment and time slot"

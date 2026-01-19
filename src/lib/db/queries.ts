@@ -29,6 +29,8 @@ export interface Assignment {
   review_prompt: string | null;
   seminar_prompt: string | null;
   due_date: Date | null;
+  target_time_minutes: number | null;
+  max_time_minutes: number | null;
   created_at: Date;
 }
 
@@ -114,6 +116,25 @@ export interface Grade {
   student_feedback: string | null;
   created_at: Date;
   updated_at: Date;
+}
+
+export interface AiGrade {
+  id: string;
+  seminar_id: string;
+  submission_id: string;
+  score_1: number | null;
+  reasoning_1: string | null;
+  score_2: number | null;
+  reasoning_2: string | null;
+  score_3: number | null;
+  reasoning_3: string | null;
+  suggested_score: number | null;
+  scoring_method: string;
+  status: string;
+  error_message: string | null;
+  started_at: Date | null;
+  completed_at: Date | null;
+  created_at: Date;
 }
 
 // User queries
@@ -233,12 +254,14 @@ export async function createAssignment(
   description?: string,
   reviewPrompt?: string,
   seminarPrompt?: string,
-  dueDate?: Date
+  dueDate?: Date,
+  targetTimeMinutes?: number,
+  maxTimeMinutes?: number
 ): Promise<Assignment> {
   const sql = getDb();
   const result = await sql<Assignment[]>`
-    INSERT INTO assignments (id, course_id, name, description, review_prompt, seminar_prompt, due_date)
-    VALUES (${id}, ${courseId}, ${name}, ${description ?? null}, ${reviewPrompt ?? null}, ${seminarPrompt ?? null}, ${dueDate ?? null})
+    INSERT INTO assignments (id, course_id, name, description, review_prompt, seminar_prompt, due_date, target_time_minutes, max_time_minutes)
+    VALUES (${id}, ${courseId}, ${name}, ${description ?? null}, ${reviewPrompt ?? null}, ${seminarPrompt ?? null}, ${dueDate ?? null}, ${targetTimeMinutes ?? null}, ${maxTimeMinutes ?? null})
     RETURNING *
   `;
   return result[0];
@@ -246,7 +269,7 @@ export async function createAssignment(
 
 export async function updateAssignment(
   id: string,
-  updates: Partial<Pick<Assignment, "name" | "description" | "review_prompt" | "seminar_prompt" | "due_date">>
+  updates: Partial<Pick<Assignment, "name" | "description" | "review_prompt" | "seminar_prompt" | "due_date" | "target_time_minutes" | "max_time_minutes">>
 ): Promise<Assignment | null> {
   const sql = getDb();
   const result = await sql<Assignment[]>`
@@ -256,7 +279,9 @@ export async function updateAssignment(
       description = COALESCE(${updates.description ?? null}, description),
       review_prompt = COALESCE(${updates.review_prompt ?? null}, review_prompt),
       seminar_prompt = COALESCE(${updates.seminar_prompt ?? null}, seminar_prompt),
-      due_date = COALESCE(${updates.due_date ?? null}, due_date)
+      due_date = COALESCE(${updates.due_date ?? null}, due_date),
+      target_time_minutes = COALESCE(${updates.target_time_minutes ?? null}, target_time_minutes),
+      max_time_minutes = COALESCE(${updates.max_time_minutes ?? null}, max_time_minutes)
     WHERE id = ${id}
     RETURNING *
   `;
@@ -698,6 +723,94 @@ export async function updateGrade(
       admin_notes = COALESCE(${updates.admin_notes ?? null}, admin_notes),
       student_feedback = COALESCE(${updates.student_feedback ?? null}, student_feedback),
       updated_at = NOW()
+    WHERE id = ${id}
+    RETURNING *
+  `;
+  return result[0] ?? null;
+}
+
+// AI Grade queries
+export async function getAiGradeById(id: string): Promise<AiGrade | null> {
+  const sql = getDb();
+  const result = await sql<AiGrade[]>`
+    SELECT * FROM ai_grades WHERE id = ${id}
+  `;
+  return result[0] ?? null;
+}
+
+export async function getAiGradeBySeminar(seminarId: string): Promise<AiGrade | null> {
+  const sql = getDb();
+  const result = await sql<AiGrade[]>`
+    SELECT * FROM ai_grades WHERE seminar_id = ${seminarId} ORDER BY created_at DESC LIMIT 1
+  `;
+  return result[0] ?? null;
+}
+
+export async function getAiGradeBySubmission(submissionId: string): Promise<AiGrade | null> {
+  const sql = getDb();
+  const result = await sql<AiGrade[]>`
+    SELECT * FROM ai_grades WHERE submission_id = ${submissionId} ORDER BY created_at DESC LIMIT 1
+  `;
+  return result[0] ?? null;
+}
+
+export async function createAiGrade(
+  id: string,
+  seminarId: string,
+  submissionId: string
+): Promise<AiGrade> {
+  const sql = getDb();
+  const result = await sql<AiGrade[]>`
+    INSERT INTO ai_grades (id, seminar_id, submission_id, status, started_at)
+    VALUES (${id}, ${seminarId}, ${submissionId}, 'pending', NOW())
+    RETURNING *
+  `;
+  return result[0];
+}
+
+export async function updateAiGradeScores(
+  id: string,
+  scores: {
+    score_1?: number | null;
+    reasoning_1?: string | null;
+    score_2?: number | null;
+    reasoning_2?: string | null;
+    score_3?: number | null;
+    reasoning_3?: string | null;
+    suggested_score?: number | null;
+    scoring_method?: string;
+  }
+): Promise<AiGrade | null> {
+  const sql = getDb();
+  const result = await sql<AiGrade[]>`
+    UPDATE ai_grades
+    SET
+      score_1 = COALESCE(${scores.score_1 ?? null}, score_1),
+      reasoning_1 = COALESCE(${scores.reasoning_1 ?? null}, reasoning_1),
+      score_2 = COALESCE(${scores.score_2 ?? null}, score_2),
+      reasoning_2 = COALESCE(${scores.reasoning_2 ?? null}, reasoning_2),
+      score_3 = COALESCE(${scores.score_3 ?? null}, score_3),
+      reasoning_3 = COALESCE(${scores.reasoning_3 ?? null}, reasoning_3),
+      suggested_score = COALESCE(${scores.suggested_score ?? null}, suggested_score),
+      scoring_method = COALESCE(${scores.scoring_method ?? null}, scoring_method)
+    WHERE id = ${id}
+    RETURNING *
+  `;
+  return result[0] ?? null;
+}
+
+export async function updateAiGradeStatus(
+  id: string,
+  status: string,
+  errorMessage?: string
+): Promise<AiGrade | null> {
+  const sql = getDb();
+  const result = await sql<AiGrade[]>`
+    UPDATE ai_grades
+    SET
+      status = ${status},
+      error_message = ${errorMessage ?? null},
+      completed_at = CASE WHEN ${status} IN ('completed', 'failed') THEN NOW() ELSE completed_at END
     WHERE id = ${id}
     RETURNING *
   `;

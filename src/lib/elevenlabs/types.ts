@@ -41,6 +41,8 @@ export interface SeminarContext {
   assignmentDescription: string;
   discussionPlan: DiscussionPlan;
   language: 'en' | 'sv';
+  targetTimeMinutes?: number;
+  maxTimeMinutes?: number;
 }
 
 export interface ConversationSession {
@@ -55,6 +57,7 @@ export interface ConversationConfigOverride {
     prompt: {
       prompt: string;
     };
+    first_message?: string;
     language: 'en' | 'sv';
   };
 }

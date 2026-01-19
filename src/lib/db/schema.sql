@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS assignments (
   review_prompt TEXT,
   seminar_prompt TEXT,
   due_date TIMESTAMPTZ,
+  target_time_minutes INTEGER DEFAULT 30,
+  max_time_minutes INTEGER DEFAULT 35,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -123,6 +125,26 @@ CREATE TABLE IF NOT EXISTS grades (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- ai_grades (GPT grading of seminar transcripts)
+CREATE TABLE IF NOT EXISTS ai_grades (
+  id BIGINT PRIMARY KEY,
+  seminar_id BIGINT REFERENCES seminars(id),
+  submission_id BIGINT REFERENCES submissions(id),
+  score_1 INTEGER,
+  reasoning_1 TEXT,
+  score_2 INTEGER,
+  reasoning_2 TEXT,
+  score_3 INTEGER,
+  reasoning_3 TEXT,
+  suggested_score INTEGER,
+  scoring_method VARCHAR(20) DEFAULT 'average',
+  status VARCHAR(20) DEFAULT 'pending',
+  error_message TEXT,
+  started_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_submissions_student ON submissions(student_id);
 CREATE INDEX IF NOT EXISTS idx_submissions_assignment ON submissions(assignment_id);
@@ -130,3 +152,5 @@ CREATE INDEX IF NOT EXISTS idx_submissions_status ON submissions(status);
 CREATE INDEX IF NOT EXISTS idx_seminars_slot ON seminars(slot_id);
 CREATE INDEX IF NOT EXISTS idx_seminars_status ON seminars(status);
 CREATE INDEX IF NOT EXISTS idx_transcripts_seminar ON transcripts(seminar_id);
+CREATE INDEX IF NOT EXISTS idx_ai_grades_seminar ON ai_grades(seminar_id);
+CREATE INDEX IF NOT EXISTS idx_ai_grades_submission ON ai_grades(submission_id);

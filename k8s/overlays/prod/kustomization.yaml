@@ -8,5 +8,9 @@ resources:
   - secrets.yaml
 
 images:
-  - name: ghcr.io/edwinexd/vival
-    newTag: latest
+  - name: ghcr.io/isaksamsten/voice-grader/web
+    newTag: main
+  - name: ghcr.io/isaksamsten/voice-grader/worker
+    newTag: main
+  - name: ghcr.io/isaksamsten/voice-grader/migrate
+    newTag: main

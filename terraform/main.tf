@@ -24,6 +24,28 @@ resource "github_repository_environment" "prod" {
 }
 
 # =============================================================================
+# Generated k8s secrets
+# =============================================================================
+
+locals {
+  k8s_secrets_yaml = <<-YAML
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: vival-secrets
+      namespace: vival
+    type: Opaque
+    stringData:
+      POSTGRES_USER: "${var.postgres_user}"
+      POSTGRES_PASSWORD: "${var.postgres_password}"
+      DATABASE_URL: "postgresql://${var.postgres_user}:${var.postgres_password}@postgres:5432/vival"
+      AUTH_SECRET: "${var.auth_secret}"
+      ADMIN_USERNAMES: "${var.admin_usernames}"
+      OPENAI_API_KEY: "${var.openai_api_key}"
+  YAML
+}
+
+# =============================================================================
 # Prod Environment Secrets
 # =============================================================================
 
@@ -59,5 +81,12 @@ resource "github_actions_environment_secret" "prod_k8s_secrets" {
   repository      = data.github_repository.repo.name
   environment     = github_repository_environment.prod.environment
   secret_name     = "K8S_SECRETS"
-  plaintext_value = var.k8s_secrets
+  plaintext_value = base64encode(local.k8s_secrets_yaml)
+}
+
+resource "github_actions_environment_secret" "prod_ghcr_pat" {
+  repository      = data.github_repository.repo.name
+  environment     = github_repository_environment.prod.environment
+  secret_name     = "GHCR_PAT"
+  plaintext_value = var.ghcr_pat
 }

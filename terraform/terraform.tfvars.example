@@ -3,7 +3,7 @@ github_owner = "Edwinexd"
 github_repo  = "dsv-prog2review"
 
 # =============================================================================
-# Secrets
+# Infrastructure Secrets
 # =============================================================================
 
 # Base64-encode your kubeconfig: base64 -w0 ~/.kube/config
@@ -21,7 +21,22 @@ DNS = 10.0.0.1
 
 [Peer]
 PublicKey = SERVER_PUBLIC_KEY_HERE
-AllowedIPs = 10.0.0.0/24, 192.168.0.0/16
+AllowedIPs = 0.0.0.0/0
 Endpoint = vpn.example.com:51820
 PersistentKeepalive = 25
 EOT
+
+# SSH private key for CI user
+ssh_private_key = ""
+
+# GitHub PAT with read:packages scope for pulling voice-grader images from ghcr.io
+ghcr_pat = ""
+
+# =============================================================================
+# Application Secrets (generates k8s secrets.yaml automatically)
+# =============================================================================
+
+postgres_password = ""
+auth_secret       = ""  # Generate with: openssl rand -base64 32
+admin_usernames   = "admin_user1,admin_user2"
+openai_api_key    = ""

@@ -11,7 +11,7 @@ variable "github_repo" {
 }
 
 # =============================================================================
-# Secrets
+# Infrastructure Secrets
 # =============================================================================
 
 variable "kubeconfig" {
@@ -38,8 +38,41 @@ variable "ssh_private_key" {
   sensitive   = true
 }
 
-variable "k8s_secrets" {
-  description = "Base64-encoded k8s secrets.yaml content"
+variable "ghcr_pat" {
+  description = "GitHub PAT with read:packages scope for pulling private images from ghcr.io"
+  type        = string
+  sensitive   = true
+}
+
+# =============================================================================
+# Application Secrets (used to generate k8s secrets.yaml)
+# =============================================================================
+
+variable "postgres_user" {
+  description = "PostgreSQL username"
+  type        = string
+  default     = "vival"
+}
+
+variable "postgres_password" {
+  description = "PostgreSQL password"
+  type        = string
+  sensitive   = true
+}
+
+variable "auth_secret" {
+  description = "NextAuth secret (generate with: openssl rand -base64 32)"
+  type        = string
+  sensitive   = true
+}
+
+variable "admin_usernames" {
+  description = "Comma-separated admin usernames"
+  type        = string
+}
+
+variable "openai_api_key" {
+  description = "OpenAI API key"
   type        = string
   sensitive   = true
 }

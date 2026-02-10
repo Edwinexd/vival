@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vival-worker
+  namespace: vival
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vival-worker
+  template:
+    metadata:
+      labels:
+        app: vival-worker
+    spec:
+      imagePullSecrets:
+        - name: ghcr-secret
+      containers:
+        - name: worker
+          image: ghcr.io/isaksamsten/voice-grader/worker:main
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: vival-secrets
+                  key: DATABASE_URL
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vival-secrets
+                  key: OPENAI_API_KEY
+            - name: DATA_DIR
+              value: "/data"
+            - name: ANALYSIS_WORKER_CONCURRENCY
+              value: "2"
+          volumeMounts:
+            - name: app-data
+              mountPath: /data
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "200m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+      volumes:
+        - name: app-data
+          hostPath:
+            path: /data0/vival/data
+            type: DirectoryOrCreate

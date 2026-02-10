@@ -9,4 +9,5 @@ resources:
   - redis.yaml
   - id-generator.yaml
   - app.yaml
+  - worker.yaml
   - backup.yaml

@@ -1,5 +1,8 @@
 .DS_Store
 
+# symlinked app repo
+voice-grader
+
 # env files
 .env*
 

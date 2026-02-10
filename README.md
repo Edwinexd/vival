@@ -1,75 +1,66 @@
-# Vival
+# Vival Infrastructure
 
-<p align="center">
-  <img src="public/vival_color.png" alt="Vival Logo" width="200">
-</p>
+Infrastructure, Kubernetes manifests, and deployment configuration for Vival - an AI-powered code review and oral examination system.
 
-AI-powered code review and oral examination system.
+The application code lives in a separate repository.
 
-## Overview
+## Infrastructure
 
-Students submit Java code (via admin upload from Moodle) → GPT-5 reviews and generates discussion points → Students book seminar slots → ElevenLabs voice agent conducts 30-minute oral examination → Admins review transcripts and grade pass/fail.
+- **Kubernetes:** Manifests for PostgreSQL, Redis, ID generator, app deployment, backups
+- **Terraform:** GitHub environments and secrets (WireGuard VPN + kubectl)
+- **CI/CD:** GitHub Actions for deployment via WireGuard + SSH tunnel
+- **Docker Compose:** Local development (Postgres + Redis + ID generator)
 
-## Tech Stack
+## Structure
 
-- **Frontend/Backend:** Next.js 14+ (App Router, TypeScript, Turbopack)
-- **Database:** PostgreSQL 16 (raw SQL, no ORM)
-- **Cache/Queue:** Redis 7
-- **IDs:** Snowflake IDs via [id-generator](https://github.com/Edthing/id-generator)
-- **AI Review:** OpenAI GPT-5
-- **Voice Agent:** ElevenLabs Conversational AI
-- **Email:** dsv-wrapper (Python) via lambda@dsv.su.se
-- **Deployment:** Kubernetes + Docker
+```
+k8s/
+├── base/               # Base Kubernetes manifests
+│   ├── app.yaml        # Application deployment
+│   ├── backup.yaml     # Daily PostgreSQL backup CronJob
+│   ├── id-generator.yaml
+│   ├── kustomization.yaml
+│   ├── namespace.yaml
+│   ├── postgres.yaml
+│   ├── redis.yaml
+│   └── secrets.yaml.template
+└── overlays/
+    └── prod/           # Production overrides
 
-## Quick Start
+terraform/              # GitHub environments and secrets
+├── main.tf
+├── variables.tf
+├── outputs.tf
+└── terraform.tfvars.example
+
+.github/workflows/
+└── deploy.yml          # Deploy to production via WireGuard + k8s
+```
+
+## Local Development
 
 ```bash
-# Start Postgres + Redis
+# Start Postgres + Redis + ID generator
 docker compose up -d
-
-# Install dependencies
-npm install
-
-# Run migrations
-npm run db:migrate
-
-# Start dev server (with Turbopack)
-npm run dev
 ```
 
-## Environment Variables
+## Deployment
 
-Copy `.env.example` to `.env.local` and fill in:
+Deployment runs via GitHub Actions (`deploy.yml`):
+1. Connects to production server via WireGuard VPN
+2. Opens SSH tunnel for kubectl access
+3. Applies Kubernetes manifests
+4. Restarts app deployment and runs DB migrations
 
-```env
-DATABASE_URL=postgresql://vival:vival@localhost:5432/vival
-REDIS_URL=redis://localhost:6379
-ID_GENERATOR_URL=http://localhost:8080
-OPENAI_API_KEY=sk-...
-ELEVENLABS_API_KEY=...
-ELEVENLABS_AGENT_ID=...
-ADMIN_USERNAMES=edsu8469
-BASE_URL=https://prog2review.dsv.su.se
-MAIL_USER=lambda
-MAIL_PASS=...
-```
+Manual deploy: trigger the "Deploy to Production" workflow via GitHub Actions.
 
-## Project Structure
+## Production Storage (/data0)
 
 ```
-src/
-├── app/                    # Next.js App Router
-│   ├── (student)/          # Student portal
-│   ├── admin/              # Admin portal
-│   └── api/                # API routes
-├── components/             # React components
-├── lib/                    # Core utilities
-│   ├── db/                 # Database (raw SQL)
-│   ├── redis/              # Redis client
-│   ├── id/                 # Snowflake ID generator client
-│   ├── openai/             # GPT integration
-│   └── elevenlabs/         # Voice agent
-└── services/               # Business logic
+/data0/vival/
+├── postgres/     # PostgreSQL data directory
+├── redis/        # Redis AOF persistence
+└── backups/      # Daily PostgreSQL dumps (14 days retention)
 ```
 
 ## License

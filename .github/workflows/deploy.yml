@@ -3,16 +3,30 @@ name: Deploy to Production
 on:
   push:
     branches: [main, master]
+  repository_dispatch:
+    types: [deploy]
   workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to deploy (e.g. main, sha-abc1234, v1.0.0)"
+        required: false
+        default: "main"
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: prod
+    env:
+      IMAGE_TAG: ${{ github.event.client_payload.tag || inputs.image_tag || 'main' }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set image tag in kustomization
+        run: |
+          cd k8s/overlays/prod
+          sed -i "s/newTag: .*/newTag: ${{ env.IMAGE_TAG }}/" kustomization.yaml
 
       - name: Install WireGuard
         run: sudo apt-get update && sudo apt-get install -y wireguard
@@ -55,6 +69,7 @@ jobs:
 
       - name: Deploy to Kubernetes
         run: |
+          echo "Deploying image tag: ${{ env.IMAGE_TAG }}"
           kubectl apply -k k8s/overlays/prod
           kubectl rollout restart deployment/vival-app -n vival
           kubectl rollout restart deployment/vival-worker -n vival

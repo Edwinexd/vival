@@ -13,8 +13,18 @@ provider "github" {
   owner = var.github_owner
 }
 
+provider "github" {
+  alias = "voice_grader"
+  owner = var.voice_grader_owner
+}
+
 data "github_repository" "repo" {
   full_name = "${var.github_owner}/${var.github_repo}"
+}
+
+data "github_repository" "voice_grader" {
+  provider  = github.voice_grader
+  full_name = "${var.voice_grader_owner}/${var.voice_grader_repo}"
 }
 
 # Production Environment
@@ -46,7 +56,7 @@ locals {
 }
 
 # =============================================================================
-# Prod Environment Secrets
+# Prod Environment Secrets (infra repo)
 # =============================================================================
 
 resource "github_actions_environment_secret" "prod_kubeconfig" {
@@ -89,4 +99,15 @@ resource "github_actions_environment_secret" "prod_ghcr_pat" {
   environment     = github_repository_environment.prod.environment
   secret_name     = "GHCR_PAT"
   plaintext_value = var.ghcr_pat
+}
+
+# =============================================================================
+# Voice-grader repo secret (deploy dispatch PAT)
+# =============================================================================
+
+resource "github_actions_secret" "voice_grader_deploy_pat" {
+  provider        = github.voice_grader
+  repository      = data.github_repository.voice_grader.name
+  secret_name     = "INFRA_DEPLOY_PAT"
+  plaintext_value = var.deploy_pat
 }

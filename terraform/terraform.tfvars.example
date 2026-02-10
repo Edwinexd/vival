@@ -32,6 +32,9 @@ ssh_private_key = ""
 # GitHub PAT with read:packages scope for pulling voice-grader images from ghcr.io
 ghcr_pat = ""
 
+# GitHub PAT for voice-grader to dispatch deploy on infra repo (needs repo scope or fine-grained actions:write)
+deploy_pat = ""
+
 # =============================================================================
 # Application Secrets (generates k8s secrets.yaml automatically)
 # =============================================================================

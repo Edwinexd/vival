@@ -10,6 +10,18 @@ variable "github_repo" {
   default     = "dsv-prog2review"
 }
 
+variable "voice_grader_owner" {
+  description = "Voice-grader repository owner"
+  type        = string
+  default     = "isaksamsten"
+}
+
+variable "voice_grader_repo" {
+  description = "Voice-grader repository name"
+  type        = string
+  default     = "voice-grader"
+}
+
 # =============================================================================
 # Infrastructure Secrets
 # =============================================================================
@@ -40,6 +52,12 @@ variable "ssh_private_key" {
 
 variable "ghcr_pat" {
   description = "GitHub PAT with read:packages scope for pulling private images from ghcr.io"
+  type        = string
+  sensitive   = true
+}
+
+variable "deploy_pat" {
+  description = "GitHub PAT for voice-grader to trigger deploy workflow on infra repo (needs repo or actions:write scope)"
   type        = string
   sensitive   = true
 }

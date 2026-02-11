@@ -39,7 +39,8 @@ deploy_pat = ""
 # Application Secrets (generates k8s secrets.yaml automatically)
 # =============================================================================
 
-postgres_password = ""
-auth_secret       = ""  # Generate with: openssl rand -base64 32
-admin_usernames   = "admin_user1,admin_user2"
-openai_api_key    = ""
+postgres_password  = ""
+better_auth_secret = ""  # Generate with: openssl rand -base64 32
+better_auth_url    = "https://prog2review.dsv.su.se"
+admin_usernames    = "admin_user1,admin_user2"
+openai_api_key     = ""

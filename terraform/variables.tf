@@ -78,10 +78,15 @@ variable "postgres_password" {
   sensitive   = true
 }
 
-variable "auth_secret" {
-  description = "NextAuth secret (generate with: openssl rand -base64 32)"
+variable "better_auth_secret" {
+  description = "Better Auth secret (generate with: openssl rand -base64 32)"
   type        = string
   sensitive   = true
+}
+
+variable "better_auth_url" {
+  description = "Better Auth base URL (e.g. https://prog2review.dsv.su.se)"
+  type        = string
 }
 
 variable "admin_usernames" {

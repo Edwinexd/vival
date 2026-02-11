@@ -39,11 +39,16 @@ spec:
                   key: DATABASE_URL
             - name: REDIS_URL
               value: "redis://redis:6379"
-            - name: AUTH_SECRET
+            - name: BETTER_AUTH_SECRET
               valueFrom:
                 secretKeyRef:
                   name: vival-secrets
-                  key: AUTH_SECRET
+                  key: BETTER_AUTH_SECRET
+            - name: BETTER_AUTH_URL
+              valueFrom:
+                secretKeyRef:
+                  name: vival-secrets
+                  key: BETTER_AUTH_URL
             - name: BASE_URL
               value: "https://prog2review.dsv.su.se"
             - name: ADMIN_USERNAMES

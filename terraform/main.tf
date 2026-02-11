@@ -49,7 +49,8 @@ locals {
       POSTGRES_USER: "${var.postgres_user}"
       POSTGRES_PASSWORD: "${var.postgres_password}"
       DATABASE_URL: "postgresql://${var.postgres_user}:${var.postgres_password}@postgres:5432/vival"
-      AUTH_SECRET: "${var.auth_secret}"
+      BETTER_AUTH_SECRET: "${var.better_auth_secret}"
+      BETTER_AUTH_URL: "${var.better_auth_url}"
       ADMIN_USERNAMES: "${var.admin_usernames}"
       OPENAI_API_KEY: "${var.openai_api_key}"
   YAML
@@ -110,4 +111,11 @@ resource "github_actions_secret" "voice_grader_deploy_pat" {
   repository      = data.github_repository.voice_grader.name
   secret_name     = "INFRA_DEPLOY_PAT"
   plaintext_value = var.deploy_pat
+}
+
+resource "github_actions_variable" "voice_grader_better_auth_url" {
+  provider      = github.voice_grader
+  repository    = data.github_repository.voice_grader.name
+  variable_name = "BETTER_AUTH_URL"
+  value         = var.better_auth_url
 }

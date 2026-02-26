@@ -78,6 +78,18 @@ spec:
                   key: LIVEKIT_API_SECRET
             - name: DATA_DIR
               value: "/data"
+            - name: TURN_URL
+              value: "turn:prog2review.dsv.su.se:443?transport=tcp"
+            - name: TURN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: vival-secrets
+                  key: TURN_USERNAME
+            - name: TURN_CREDENTIAL
+              valueFrom:
+                secretKeyRef:
+                  name: vival-secrets
+                  key: TURN_CREDENTIAL
           volumeMounts:
             - name: app-data
               mountPath: /data

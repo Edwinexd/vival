@@ -16,7 +16,8 @@ data:
       enabled: true
       domain: prog2review.dsv.su.se
       tls_port: 3478
-      external_tls: true
+      cert_file: /etc/letsencrypt/live/server/fullchain.pem
+      key_file: /etc/letsencrypt/live/server/privkey.pem
     logging:
       level: info
       pion_level: warn
@@ -72,6 +73,9 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /etc/livekit
+            - name: letsencrypt
+              mountPath: /etc/letsencrypt
+              readOnly: true
           resources:
             requests:
               memory: "128Mi"
@@ -95,6 +99,10 @@ spec:
         - name: config
           configMap:
             name: livekit-config
+        - name: letsencrypt
+          hostPath:
+            path: /etc/letsencrypt
+            type: Directory
 ---
 apiVersion: v1
 kind: Service

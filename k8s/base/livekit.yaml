@@ -1,0 +1,103 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: livekit-config
+  namespace: vival
+data:
+  livekit.yaml: |
+    port: 7880
+    rtc:
+      port_range_start: 7882
+      port_range_end: 7892
+      tcp_port: 7881
+      use_external_ip: false
+    logging:
+      level: info
+      pion_level: warn
+    room:
+      empty_timeout: 300
+      max_participants: 2
+      departure_timeout: 20
+    redis:
+      address: redis:6379
+      db: 0
+    limit:
+      num_tracks: 100
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: livekit
+  namespace: vival
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: livekit
+  template:
+    metadata:
+      labels:
+        app: livekit
+    spec:
+      containers:
+        - name: livekit
+          image: livekit/livekit-server:latest
+          args: ["--config", "/etc/livekit/livekit.yaml"]
+          ports:
+            - containerPort: 7880
+            - containerPort: 7881
+          env:
+            - name: LIVEKIT_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vival-secrets
+                  key: LIVEKIT_API_KEY
+            - name: LIVEKIT_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: vival-secrets
+                  key: LIVEKIT_API_SECRET
+            - name: LIVEKIT_KEYS
+              value: "$(LIVEKIT_API_KEY): $(LIVEKIT_API_SECRET)"
+          volumeMounts:
+            - name: config
+              mountPath: /etc/livekit
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "1000m"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 7880
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 7880
+            initialDelaySeconds: 10
+            periodSeconds: 30
+      volumes:
+        - name: config
+          configMap:
+            name: livekit-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: livekit-svc
+  namespace: vival
+spec:
+  selector:
+    app: livekit
+  ports:
+    - name: http
+      port: 7880
+      targetPort: 7880
+    - name: rtc-tcp
+      port: 7881
+      targetPort: 7881

@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: egress-config
+  namespace: vival
+data:
+  egress.yaml: |
+    ws_url: ws://livekit-svc:7880
+    redis:
+      address: redis:6379
+    health_port: 9090
+    template_port: 7980
+    file_output:
+      local:
+        - /data
+    enable_chromium_sandbox: false
+    log_level: info
+    insecure: true
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: egress
+  namespace: vival
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: egress
+  template:
+    metadata:
+      labels:
+        app: egress
+    spec:
+      containers:
+        - name: egress
+          image: livekit/egress:latest
+          env:
+            - name: EGRESS_CONFIG_FILE
+              value: "/etc/egress/egress.yaml"
+            - name: LIVEKIT_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vival-secrets
+                  key: LIVEKIT_API_KEY
+            - name: LIVEKIT_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: vival-secrets
+                  key: LIVEKIT_API_SECRET
+          volumeMounts:
+            - name: config
+              mountPath: /etc/egress
+            - name: app-data
+              mountPath: /data
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "50m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
+      volumes:
+        - name: config
+          configMap:
+            name: egress-config
+        - name: app-data
+          hostPath:
+            path: /data0/vival/data
+            type: DirectoryOrCreate

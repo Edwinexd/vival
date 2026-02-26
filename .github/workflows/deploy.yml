@@ -73,8 +73,12 @@ jobs:
           kubectl apply -k k8s/overlays/prod
           kubectl rollout restart deployment/vival-app -n vival
           kubectl rollout restart deployment/vival-worker -n vival
+          kubectl rollout restart deployment/vival-agent -n vival
+          kubectl rollout status deployment/livekit -n vival --timeout=120s
+          kubectl rollout status deployment/egress -n vival --timeout=120s
           kubectl rollout status deployment/vival-app -n vival --timeout=300s
           kubectl rollout status deployment/vival-worker -n vival --timeout=300s
+          kubectl rollout status deployment/vival-agent -n vival --timeout=300s
 
       - name: Teardown
         if: always()

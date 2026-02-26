@@ -14,3 +14,5 @@ images:
     newTag: main
   - name: ghcr.io/isaksamsten/voice-grader/migrate
     newTag: main
+  - name: ghcr.io/isaksamsten/voice-grader/agent
+    newTag: main

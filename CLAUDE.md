@@ -6,7 +6,8 @@ Application code: https://github.com/isaksamsten/voice-grader (symlinked as `voi
 
 ## Tech Stack
 
-- **Application:** Next.js (voice-grader) with web + worker + migrate images
+- **Application:** Next.js (voice-grader) with web + worker + migrate + agent images
+- **Voice Exams:** LiveKit (server + egress + agent worker with OpenAI Realtime API)
 - **Database:** PostgreSQL 16
 - **Cache/Queue:** Redis 7 (BullMQ job queue)
 - **IDs:** Snowflake IDs via id-generator service
@@ -21,6 +22,7 @@ From the voice-grader repo (pushed to ghcr.io on push to `main`):
 - `ghcr.io/isaksamsten/voice-grader/web:main` - Next.js web server
 - `ghcr.io/isaksamsten/voice-grader/worker:main` - Background worker (analysis jobs)
 - `ghcr.io/isaksamsten/voice-grader/migrate:main` - Database migrations (drizzle-kit)
+- `ghcr.io/isaksamsten/voice-grader/agent:main` - LiveKit agent worker (oral exams)
 
 ## Commands
 
@@ -86,6 +88,7 @@ k8s/
 ├── base/               # Base Kubernetes manifests
 │   ├── app.yaml        # Web deployment + migrate init container
 │   ├── worker.yaml     # Background worker deployment
+│   ├── agent.yaml      # LiveKit agent worker deployment
 │   ├── backup.yaml     # Daily PostgreSQL backup CronJob
 │   ├── id-generator.yaml
 │   ├── kustomization.yaml
@@ -112,5 +115,5 @@ terraform/              # GitHub environments and secrets
 2. Trigger `Deploy to Production` workflow (manual via workflow_dispatch)
 3. Workflow connects via WireGuard VPN + SSH tunnel
 4. Creates `ghcr-secret` for pulling private images (from `GHCR_PAT`)
-5. Applies k8s manifests, restarts web + worker deployments
+5. Applies k8s manifests, restarts web + worker + agent deployments
 6. Migrations run automatically via init container on the web pod
